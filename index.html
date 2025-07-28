@@ -467,6 +467,18 @@
                     <input type="range" id="speedSlider" min="10" max="1000" value="200">
                     <span id="speedValue" class="text-sm">200ms</span>
                 </div>
+                <!-- Floyd-Warshall Path Selection Controls -->
+                <div id="floydPathSelectionGroup" style="display: none; width: 100%; justify-content: center; gap: 1rem;">
+                    <div class="input-group">
+                        <label for="floydPathStartNode">Path Start:</label>
+                        <select id="floydPathStartNode" class="form-select"></select>
+                    </div>
+                    <div class="input-group">
+                        <label for="floydPathEndNode">Path End:</label>
+                        <select id="floydPathEndNode" class="form-select"></select>
+                    </div>
+                    <button id="showFloydPathButton" class="btn btn-primary">Show Path</button>
+                </div>
             </div>
 
             <div class="info-box" id="graphAlgorithmInfoBox">
@@ -650,6 +662,13 @@ function BFS(graph, startNode):
         const matrixContainer = document.getElementById('matrixContainer');
         const distanceMatrixTableDiv = document.getElementById('distanceMatrixTable');
 
+        // Floyd-Warshall Path Selection Elements
+        const floydPathSelectionGroup = document.getElementById('floydPathSelectionGroup');
+        const floydPathStartNodeSelect = document.getElementById('floydPathStartNode');
+        const floydPathEndNodeSelect = document.getElementById('floydPathEndNode');
+        const showFloydPathButton = document.getElementById('showFloydPathButton');
+        let floydWarshallResult = { finalMatrix: [], pathMatrix: [] }; // Store the result after FW runs
+
         // Grid Visualization Elements
         const gridCanvas = document.getElementById('gridCanvas');
         const gridCtx = gridCanvas.getContext('2d');
@@ -702,6 +721,10 @@ function BFS(graph, startNode):
             'G': { x: 750, y: 150 }
         };
 
+        // Reference dimensions for the initial nodePositions layout
+        const REFERENCE_CANVAS_WIDTH = 900;
+        const REFERENCE_CANVAS_HEIGHT = 500;
+
         const nodeRadius = 25;
         let nodesArray = Object.keys(graph); // Array of node names for matrix indexing
         let numNodes = nodesArray.length;
@@ -725,6 +748,7 @@ function BFS(graph, startNode):
         let floydDistMatrix = []; // Current distance matrix for visualization
         let floydPathMatrix = []; // Path reconstruction matrix (optional for visualization)
         let currentK = -1, currentI = -1, currentJ = -1; // Indices for highlighting in matrix
+        let currentFloydPath = []; // For visualizing a specific path after FW
 
         // MST specific state
         let mstEdges = new Set(); // Edges that are part of the MST
@@ -797,6 +821,9 @@ function BFS(graph, startNode):
             gridContainer.classList.add('hidden');
             compareContainer.classList.add('hidden');
 
+            // Show/hide algorithm select in nav based on mode
+            algorithmSelect.style.display = (currentMode === 'graph') ? 'block' : 'none';
+
             // Show/hide containers based on mode
             if (currentMode === 'graph') {
                 graphContainer.classList.remove('hidden');
@@ -809,12 +836,19 @@ function BFS(graph, startNode):
                 if (currentAlgorithm === 'dijkstra') {
                     startNodeGroup.style.display = 'flex';
                     targetNodeGroup.style.display = 'flex';
+                    floydPathSelectionGroup.style.display = 'none'; // Hide Floyd-Warshall path selection
                 } else if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'mst') {
                     startNodeGroup.style.display = 'flex';
                     targetNodeGroup.style.display = 'none';
-                } else { // floyd-warshall
+                    floydPathSelectionGroup.style.display = 'none'; // Hide Floyd-Warshall path selection
+                } else if (currentAlgorithm === 'floyd-warshall') {
                     startNodeGroup.style.display = 'none';
                     targetNodeGroup.style.display = 'none';
+                    floydPathSelectionGroup.style.display = 'flex'; // Show Floyd-Warshall path selection
+                } else { // Default or other algorithms
+                    startNodeGroup.style.display = 'none';
+                    targetNodeGroup.style.display = 'none';
+                    floydPathSelectionGroup.style.display = 'none';
                 }
 
                 if (currentAlgorithm === 'floyd-warshall') {
@@ -838,6 +872,7 @@ function BFS(graph, startNode):
                 startNodeSelect.disabled = algorithmControlsDisabled;
                 targetNodeSelect.disabled = algorithmControlsDisabled;
                 algorithmSelect.disabled = algorithmControlsDisabled;
+                showFloydPathButton.disabled = algorithmControlsDisabled || floydWarshallResult.finalMatrix.length === 0;
 
             } else if (currentMode === 'grid') {
                 gridContainer.classList.remove('hidden');
@@ -1050,6 +1085,8 @@ function BFS_Grid(grid, startNode, endNode):
             targetNodeSelect.innerHTML = '';
             compareStartNodeSelect.innerHTML = '';
             compareTargetNodeSelect.innerHTML = '';
+            floydPathStartNodeSelect.innerHTML = '';
+            floydPathEndNodeSelect.innerHTML = '';
 
             nodesArray = Object.keys(graph); // Update nodesArray
             numNodes = nodesArray.length; // Update numNodes
@@ -1074,6 +1111,16 @@ function BFS_Grid(grid, startNode, endNode):
                 optionCompareTarget.value = node;
                 optionCompareTarget.textContent = node;
                 compareTargetNodeSelect.appendChild(optionCompareTarget);
+
+                const optionFloydPathStart = document.createElement('option');
+                optionFloydPathStart.value = node;
+                optionFloydPathStart.textContent = node;
+                floydPathStartNodeSelect.appendChild(optionFloydPathStart);
+
+                const optionFloydPathEnd = document.createElement('option');
+                optionFloydPathEnd.value = node;
+                optionFloydPathEnd.textContent = node;
+                floydPathEndNodeSelect.appendChild(optionFloydPathEnd);
             });
             // Set default selected nodes
             if (nodesArray.length > 0) {
@@ -1081,11 +1128,15 @@ function BFS_Grid(grid, startNode, endNode):
                 targetNodeSelect.value = nodesArray[nodesArray.length - 1]; // Default target to last node
                 compareStartNodeSelect.value = nodesArray[0];
                 compareTargetNodeSelect.value = nodesArray[nodesArray.length - 1];
+                floydPathStartNodeSelect.value = nodesArray[0];
+                floydPathEndNodeSelect.value = nodesArray[nodesArray.length - 1];
             } else {
                 startNodeSelect.value = '';
                 targetNodeSelect.value = '';
                 compareStartNodeSelect.value = '';
                 compareTargetNodeSelect.value = '';
+                floydPathStartNodeSelect.value = '';
+                floydPathEndNodeSelect.value = '';
             }
         }
 
@@ -1097,7 +1148,7 @@ function BFS_Grid(grid, startNode, endNode):
             queue = [],
             stack = [],
             current = null,
-            path = [],
+            path = [], // This path is for Dijkstra or Floyd-Warshall path visualization
             floydK = -1, floydI = -1, floydJ = -1,
             mstEdges = new Set(),
             dijkstraDistances = {},
@@ -1106,10 +1157,16 @@ function BFS_Grid(grid, startNode, endNode):
             mouseX = 0, mouseY = 0,
             interactionMode = 'select' // To draw temporary edge
         }) {
-            context.clearRect(0, 0, context.canvas.width, context.canvas.height); // Clear canvas
+            context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
-            context.lineWidth = 2;
-            context.font = '14px Inter';
+            // Calculate scaling factors based on the current canvas dimensions relative to the reference dimensions
+            const scaleX = context.canvas.width / REFERENCE_CANVAS_WIDTH;
+            const scaleY = context.canvas.height / REFERENCE_CANVAS_HEIGHT;
+            const overallScale = Math.min(scaleX, scaleY); // Use min to ensure content fits within both dimensions
+
+            const effectiveNodeRadius = nodeRadius * overallScale;
+            context.lineWidth = 2 * overallScale; // Scale line width
+            context.font = `${14 * overallScale}px Inter`; // Scale font size
             context.textAlign = 'center';
             context.textBaseline = 'middle';
 
@@ -1117,38 +1174,41 @@ function BFS_Grid(grid, startNode, endNode):
             for (const nodeName in graphData) {
                 const startPos = nodePositionsData[nodeName];
                 if (startPos) {
+                    const scaledStartX = startPos.x * scaleX;
+                    const scaledStartY = startPos.y * scaleY;
                     for (const edge of graphData[nodeName]) {
                         const neighbor = edge.node;
                         const weight = edge.weight;
                         const endPos = nodePositionsData[neighbor];
                         if (endPos) {
-                            // Determine edge color
-                            context.strokeStyle = '#94a3b8'; // Default slate gray
+                            const scaledEndX = endPos.x * scaleX;
+                            const scaledEndY = endPos.y * scaleY;
+
+                            // Determine edge color (same logic)
+                            context.strokeStyle = '#94a3b8';
                             const edgeKey1 = `${nodeName}-${neighbor}`;
                             const edgeKey2 = `${neighbor}-${nodeName}`;
-
-                            // Check for path or MST edges
-                            if (path.includes(nodeName) && path.includes(neighbor) &&
-                                (path.indexOf(nodeName) === path.indexOf(neighbor) - 1 || path.indexOf(neighbor) === path.indexOf(nodeName) - 1)) {
-                                context.strokeStyle = '#059669'; // Green for shortest path edges
+                            const isPathEdge = (path.includes(nodeName) && path.includes(neighbor) &&
+                                (path.indexOf(nodeName) === path.indexOf(neighbor) - 1 || path.indexOf(neighbor) === path.indexOf(nodeName) - 1));
+                            if (isPathEdge) {
+                                context.strokeStyle = '#059669';
                             } else if (mstEdges.has(edgeKey1) || mstEdges.has(edgeKey2)) {
-                                context.strokeStyle = '#059669'; // Green for MST edges
+                                context.strokeStyle = '#059669';
                             }
 
                             context.beginPath();
-                            context.moveTo(startPos.x, startPos.y);
-                            context.lineTo(endPos.x, endPos.y);
+                            context.moveTo(scaledStartX, scaledStartY);
+                            context.lineTo(scaledEndX, scaledEndY);
                             context.stroke();
 
                             // Draw weight
-                            const midX = (startPos.x + endPos.x) / 2;
-                            const midY = (startPos.y + endPos.y) / 2;
+                            const midX = (scaledStartX + scaledEndX) / 2;
+                            const midY = (scaledStartY + scaledEndY) / 2;
+                            const angle = Math.atan2(scaledEndY - scaledStartY, scaledEndX - scaledStartX);
+                            const offsetX = 15 * Math.sin(angle) * overallScale; // Scale offset
+                            const offsetY = 15 * -Math.cos(angle) * overallScale; // Scale offset
 
-                            const angle = Math.atan2(endPos.y - startPos.y, endPos.x - startPos.x);
-                            const offsetX = 15 * Math.sin(angle);
-                            const offsetY = 15 * -Math.cos(angle);
-
-                            context.fillStyle = '#1e293b'; // Dark text for weight
+                            context.fillStyle = '#1e293b';
                             context.fillText(weight, midX + offsetX, midY + offsetY);
                         }
                     }
@@ -1156,14 +1216,17 @@ function BFS_Grid(grid, startNode, endNode):
             }
 
             // Draw temporary edge line if adding edge in interaction mode
+            // MouseX and mouseY are already relative to the current canvas, so they don't need scaling here.
             if (interactionMode === 'add-edge' && startEdgeNode) {
                 const startPos = nodePositionsData[startEdgeNode];
                 if (startPos) {
-                    context.strokeStyle = '#f59e0b'; // Amber for temporary edge
-                    context.lineWidth = 2;
+                    const scaledStartX = startPos.x * scaleX;
+                    const scaledStartY = startPos.y * scaleY;
+                    context.strokeStyle = '#f59e0b';
+                    context.lineWidth = 2 * overallScale;
                     context.beginPath();
-                    context.moveTo(startPos.x, startPos.y);
-                    context.lineTo(mouseX, mouseY);
+                    context.moveTo(scaledStartX, scaledStartY);
+                    context.lineTo(mouseX, mouseY); // Mouse coordinates are already relative to the current canvas
                     context.stroke();
                 }
             }
@@ -1172,8 +1235,11 @@ function BFS_Grid(grid, startNode, endNode):
             // Draw nodes and labels
             for (const node of Object.keys(graphData)) {
                 const pos = nodePositionsData[node];
+                const scaledX = pos.x * scaleX;
+                const scaledY = pos.y * scaleY;
 
-                let fillColor = '#60a5fa'; // Blue-500 default
+                let fillColor = '#60a5fa';
+                // ... (color logic remains the same) ...
                 if (visited.has(node)) {
                     fillColor = '#10b981'; // Green-500 for visited
                 }
@@ -1192,27 +1258,29 @@ function BFS_Grid(grid, startNode, endNode):
                 if (startEdgeNode === node) { // Specific highlight for start of edge
                     fillColor = '#f59e0b';
                 }
+                // Highlight nodes in the path for Dijkstra or Floyd-Warshall
+                if (path.includes(node)) {
+                    fillColor = '#059669'; // Green for path nodes
+                }
 
                 context.beginPath();
-                context.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+                context.arc(scaledX, scaledY, effectiveNodeRadius, 0, Math.PI * 2);
                 context.fillStyle = fillColor;
                 context.fill();
-                context.strokeStyle = '#334155'; // Darker border
-                context.lineWidth = 2;
+                context.strokeStyle = '#334155';
+                context.lineWidth = 2 * overallScale; // Scale border width
                 context.stroke();
 
                 // Node label
-                context.fillStyle = '#ffffff'; // White text
-                context.font = 'bold 18px Inter';
-                context.textAlign = 'center';
-                context.textBaseline = 'middle';
-                context.fillText(node, pos.x, pos.y);
+                context.fillStyle = '#ffffff';
+                context.font = `bold ${18 * overallScale}px Inter`; // Scale font size
+                context.fillText(node, scaledX, scaledY);
 
                 // Display distance for Dijkstra
                 if (dijkstraDistances[node] !== undefined && dijkstraDistances[node] !== Infinity) {
-                    context.fillStyle = '#1e293b'; // Dark text for distance
-                    context.font = '12px Inter';
-                    context.fillText(dijkstraDistances[node], pos.x, pos.y + nodeRadius + 10); // Below the node
+                    context.fillStyle = '#1e293b';
+                    context.font = `${12 * overallScale}px Inter`; // Scale font size
+                    context.fillText(dijkstraDistances[node], scaledX, scaledY + effectiveNodeRadius + (10 * overallScale)); // Scale offset
                 }
             }
         }
@@ -1368,10 +1436,18 @@ function BFS_Grid(grid, startNode, endNode):
 
         // Helper to find node under mouse
         function getNodeAt(x, y, nodePositionsData) {
+            // Get current canvas scaling
+            const currentCanvas = document.getElementById('visualizationCanvas'); // Assuming this is for the main canvas
+            const scaleX = currentCanvas.width / REFERENCE_CANVAS_WIDTH;
+            const scaleY = currentCanvas.height / REFERENCE_CANVAS_HEIGHT;
+            const effectiveNodeRadius = nodeRadius * Math.min(scaleX, scaleY);
+
             for (const nodeName in nodePositionsData) {
                 const pos = nodePositionsData[nodeName];
-                const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
-                if (dist < nodeRadius) {
+                const scaledX = pos.x * scaleX;
+                const scaledY = pos.y * scaleY;
+                const dist = Math.sqrt(Math.pow(x - scaledX, 2) + Math.pow(y - scaledY, 2));
+                if (dist < effectiveNodeRadius) {
                     return nodeName;
                 }
             }
@@ -1380,6 +1456,14 @@ function BFS_Grid(grid, startNode, endNode):
 
         // Add a new node
         function addNode(x, y) {
+            // When adding a node, store its position in the ORIGINAL scale
+            const currentCanvas = document.getElementById('visualizationCanvas');
+            const scaleX = currentCanvas.width / REFERENCE_CANVAS_WIDTH;
+            const scaleY = currentCanvas.height / REFERENCE_CANVAS_HEIGHT;
+
+            const originalX = x / scaleX;
+            const originalY = y / scaleY;
+
             let newNodeName = nextNodeId;
             while (graph[newNodeName]) { // Ensure unique ID
                 newNodeName = String.fromCharCode(newNodeName.charCodeAt(0) + 1);
@@ -1389,11 +1473,11 @@ function BFS_Grid(grid, startNode, endNode):
                 }
             }
             graph[newNodeName] = [];
-            nodePositions[newNodeName] = { x, y };
+            nodePositions[newNodeName] = { x: originalX, y: originalY }; // Store unscaled position
             nextNodeId = String.fromCharCode(newNodeName.charCodeAt(0) + 1); // Increment for next new node
             populateNodeSelects(); // Update dropdowns
-            drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY });
-            showModal("Node Added", `Node '${newNodeName}' added at (${x}, ${y}).`);
+            drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath });
+            showModal("Node Added", `Node '${newNodeName}' added at (${Math.round(originalX)}, ${Math.round(originalY)}).`);
         }
 
         // Remove a node
@@ -1409,7 +1493,7 @@ function BFS_Grid(grid, startNode, endNode):
                 graph[otherNode] = graph[otherNode].filter(edge => edge.node !== nodeName);
             }
             populateNodeSelects(); // Update dropdowns
-            drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY });
+            drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath });
             showModal("Node Removed", `Node '${nodeName}' and its edges removed.`);
         }
 
@@ -1441,7 +1525,7 @@ function BFS_Grid(grid, startNode, endNode):
 
             graph[node1].push({ node: node2, weight: parsedWeight });
             graph[node2].push({ node: node1, weight: parsedWeight }); // Assuming undirected for now
-            drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY });
+            drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath });
             showModal("Edge Added", `Edge added between ${node1} and ${node2} with weight ${parsedWeight}.`);
         }
 
@@ -1459,7 +1543,7 @@ function BFS_Grid(grid, startNode, endNode):
             graph[node2] = graph[node2].filter(edge => edge.node !== node1); // Assuming undirected for now
 
             if (graph[node1].length < initialLength1 || graph[node2].length < initialLength2) {
-                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY });
+                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath });
                 showModal("Edge Removed", `Edge removed between ${node1} and ${node2}.`);
             } else {
                 showModal("Error", `No edge found between ${node1} and ${node2}.`);
@@ -1737,7 +1821,33 @@ function BFS_Grid(grid, startNode, endNode):
             currentKLocal = -1; currentILocal = -1; currentJLocal = -1;
             drawGraph(context, graphData, nodePositionsData, {});
             drawMatrix(context, localFloydDistMatrix, nodesArr);
+            floydWarshallResult = { finalMatrix: localFloydDistMatrix, pathMatrix: localFloydPathMatrix }; // Store results globally
             onComplete({ finalMatrix: localFloydDistMatrix, pathMatrix: localFloydPathMatrix });
+        }
+
+        // Function to reconstruct path for Floyd-Warshall
+        function reconstructFloydWarshallPath(startNode, endNode, pathMatrix, nodesArr) {
+            const startIndex = nodesArr.indexOf(startNode);
+            const endIndex = nodesArr.indexOf(endNode);
+
+            if (startIndex === -1 || endIndex === -1) {
+                return []; // Nodes not found
+            }
+            if (floydWarshallResult.finalMatrix[startIndex][endIndex] === Infinity) {
+                return []; // No path exists
+            }
+            if (startIndex === endIndex) {
+                return [startNode]; // Path to itself
+            }
+
+            const path = [];
+            let current = endIndex;
+            while (current !== startIndex && current !== null) {
+                path.unshift(nodesArr[current]);
+                current = pathMatrix[startIndex][current];
+            }
+            path.unshift(nodesArr[startIndex]);
+            return path;
         }
 
         // Minimum Spanning Tree (Prim's Algorithm) with Visualization (for Graph)
@@ -2046,8 +2156,10 @@ function BFS_Grid(grid, startNode, endNode):
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
-            floydDistMatrix = [];
+            floydDistMatrix = []; // Reset FW matrices
             floydPathMatrix = [];
+            currentFloydPath = []; // Clear specific FW path
+            floydWarshallResult = { finalMatrix: [], pathMatrix: [] }; // Clear stored FW result
             currentK = -1; currentI = -1; currentJ = -1;
             distanceMatrixTableDiv.innerHTML = '';
             mstEdges = new Set();
@@ -2065,7 +2177,7 @@ function BFS_Grid(grid, startNode, endNode):
             isDrawingWalls = false; // Ensure wall drawing flag is reset
 
             if (currentMode === 'graph') {
-                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY });
+                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath });
             } else if (currentMode === 'grid') {
                 // For grid, only clear visited/path, retain start/end/walls
                 drawGrid(gridCtx, gridWalls, gridVisited, gridPath, startGridNode, endGridNode, cellSize); // Redraw grid with existing start/end/walls
@@ -2100,6 +2212,9 @@ function BFS_Grid(grid, startNode, endNode):
             compareTargetNodeSelect.disabled = false;
             compareSpeedSlider.disabled = false;
             customModal.style.display = 'none'; // Hide modal on reset
+            
+            // Update Floyd-Warshall path selection button state
+            showFloydPathButton.disabled = true; // Disable until FW runs again
         }
 
         // --- Event Listeners ---
@@ -2114,11 +2229,11 @@ function BFS_Grid(grid, startNode, endNode):
             gridCanvas.width = Math.min(containerWidth * 0.9, 900); // Main Grid canvas
             gridCanvas.height = 500;
 
-            // Compare canvases are smaller
+            // Compare canvases are slightly larger for better visibility
             compareCanvas1.width = Math.min(containerWidth * 0.45, 440);
-            compareCanvas1.height = 350;
+            compareCanvas1.height = 400; // Increased height
             compareCanvas2.width = Math.min(containerWidth * 0.45, 440);
-            compareCanvas2.height = 350;
+            compareCanvas2.height = 400; // Increased height
 
 
             populateNodeSelects();
@@ -2144,7 +2259,7 @@ function BFS_Grid(grid, startNode, endNode):
                 // Reset any ongoing interaction states when mode changes
                 draggedNode = null;
                 startEdgeNode = null;
-                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY }); // Redraw to clear any temporary lines
+                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw to clear any temporary lines
             });
 
             // Use a single "Start" button for graph algorithms
@@ -2164,7 +2279,13 @@ function BFS_Grid(grid, startNode, endNode):
                                 dijkstra(ctx, graph, nodePositions, selectedStartNode, selectedTargetNode, animationSpeed, { onComplete: (res) => showModal("Dijkstra's Algorithm Complete!", `Shortest path from ${selectedStartNode} to ${selectedTargetNode}: ${res.path === '' ? 'No path found.' : res.path} (Total Distance: ${res.pathLength})`) });
                                 break;
                             case 'floyd-warshall':
-                                floydWarshall(ctx, graph, nodePositions, nodesArray, animationSpeed, { onComplete: (res) => showModal("Floyd-Warshall Algorithm Complete!", "All-pairs shortest paths calculated. Check the Distance Matrix below.") });
+                                floydWarshall(ctx, graph, nodePositions, nodesArray, animationSpeed, {
+                                    onComplete: (res) => {
+                                        floydWarshallResult = res; // Store the result for path visualization
+                                        showModal("Floyd-Warshall Algorithm Complete!", "All-pairs shortest paths calculated. Check the Distance Matrix below. You can now select start/end nodes to visualize a specific path.");
+                                        showFloydPathButton.disabled = false; // Enable path button
+                                    }
+                                });
                                 break;
                             case 'mst':
                                 primMST(ctx, graph, nodePositions, selectedStartNode, nodesArray, animationSpeed, { onComplete: (res) => showModal("MST Complete!", `Minimum Spanning Tree (Prim's) Complete!\nTotal Weight: ${res.totalWeight}`) });
@@ -2173,6 +2294,30 @@ function BFS_Grid(grid, startNode, endNode):
                     }
                 }
             });
+
+            // Event listener for showing Floyd-Warshall path
+            showFloydPathButton.addEventListener('click', () => {
+                const pathStart = floydPathStartNodeSelect.value;
+                const pathEnd = floydPathEndNodeSelect.value;
+
+                if (floydWarshallResult.finalMatrix.length === 0) {
+                    showModal("Error", "Please run Floyd-Warshall algorithm first to calculate paths.");
+                    return;
+                }
+
+                const path = reconstructFloydWarshallPath(pathStart, pathEnd, floydWarshallResult.pathMatrix, nodesArray);
+                
+                if (path.length > 0) {
+                    currentFloydPath = path; // Store the path to be drawn
+                    drawGraph(ctx, graph, nodePositions, { path: currentFloydPath });
+                    showModal("Path Found!", `Path from ${pathStart} to ${pathEnd}: ${path.join(' -> ')} (Distance: ${floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)]})`);
+                } else {
+                    currentFloydPath = []; // Clear path if not found
+                    drawGraph(ctx, graph, nodePositions, { path: currentFloydPath }); // Redraw to clear any old path
+                    showModal("No Path", `No path found from ${pathStart} to ${pathEnd}.`);
+                }
+            });
+
 
             // New "Run Grid Algorithm" button for grid mode
             runGridAlgorithmButton.addEventListener('click', () => {
@@ -2266,7 +2411,7 @@ function BFS_Grid(grid, startNode, endNode):
                     } else {
                         startEdgeNode = null; // Reset if clicked outside a node
                     }
-                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY }); // Redraw to clear temporary line if interaction resets
+                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw to clear temporary line if interaction resets
                 } else if (currentGraphInteractionMode === 'remove-edge') {
                     if (clickedNode) {
                         if (!startEdgeNode) {
@@ -2278,7 +2423,7 @@ function BFS_Grid(grid, startNode, endNode):
                     } else {
                         startEdgeNode = null; // Reset if clicked outside a node
                     }
-                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY }); // Redraw to clear temporary line if interaction resets
+                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw to clear temporary line if interaction resets
                 }
             });
 
@@ -2286,22 +2431,31 @@ function BFS_Grid(grid, startNode, endNode):
                 if (isAlgorithmRunning || currentMode !== 'graph') return;
 
                 const rect = canvas.getBoundingClientRect();
-                mouseX = e.clientX - rect.left;
-                mouseY = e.clientY - rect.top;
+                const rawMouseX = e.clientX - rect.left;
+                const rawMouseY = e.clientY - rect.top;
+
+                // For drawing temporary edge, mouseX and mouseY are raw canvas coordinates
+                mouseX = rawMouseX;
+                mouseY = rawMouseY;
+
+                // Calculate current scaling factors for unscaling mouse coordinates if dragging
+                const scaleX = canvas.width / REFERENCE_CANVAS_WIDTH;
+                const scaleY = canvas.height / REFERENCE_CANVAS_HEIGHT;
 
                 if (currentGraphInteractionMode === 'select' && draggedNode) {
-                    nodePositions[draggedNode].x = mouseX;
-                    nodePositions[draggedNode].y = mouseY;
-                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, highlightedNode: draggedNode });
+                    // Unscale mouse coordinates to update original nodePositions
+                    nodePositions[draggedNode].x = rawMouseX / scaleX;
+                    nodePositions[draggedNode].y = rawMouseY / scaleY;
+                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, highlightedNode: draggedNode, path: currentFloydPath });
                 } else if (currentGraphInteractionMode === 'add-edge' && startEdgeNode) {
-                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY }); // Redraw to update temporary line
+                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // MouseX, mouseY are raw canvas coords, so they are fine here.
                 }
             });
 
             canvas.addEventListener('mouseup', () => {
                 if (isAlgorithmRunning || currentMode !== 'graph') return;
                 draggedNode = null; // Stop dragging
-                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY }); // Redraw to clear any lingering highlight
+                drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw to clear any lingering highlight
                 // startEdgeNode is handled in mousedown for add-edge/remove-edge
             });
 
@@ -2366,7 +2520,7 @@ function BFS_Grid(grid, startNode, endNode):
 
 
                 if (currentMode === 'graph') {
-                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY }); // Redraw graph to fit new canvas size
+                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw graph to fit new canvas size
                 } else if (currentMode === 'grid') {
                     cellSize = Math.min(gridCanvas.width / GRID_COLS, gridCanvas.height / GRID_ROWS); // Recalculate cellSize
                     drawGrid(gridCtx, gridWalls, gridVisited, gridPath, startGridNode, endGridNode, cellSize); // Redraw grid to fit new canvas size
