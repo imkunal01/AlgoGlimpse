@@ -2274,7 +2274,7 @@ function BFS_Grid(grid, startNode, endNode):
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
 
             const payload = { contents: chatHistory };
-            const apiKey = ""; // Leave this as-is; Canvas will automatically provide it.
+            const apiKey = "AIzaSyCG6coSGkxY0Ming4eEZXFa57Eft8uX0W0"; // Leave this as-is; Canvas will automatically provide it.
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             try {
