@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlgoGlimps</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        nav {
+            background-color: #1e293b; /* Dark slate for navbar */
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        nav h1 {
+            color: #ffffff;
+            font-size: 1.75rem; /* text-2xl */
+            font-weight: 700; /* font-bold */
+        }
+        .nav-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .nav-section label {
+            color: #cbd5e1; /* Light gray text */
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .nav-section select, .nav-section button {
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: none;
+        }
+        .nav-section select {
+            background-color: #334155; /* Darker slate */
+            color: #ffffff;
+            appearance: none; /* Remove default arrow */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.2em;
+        }
+        .nav-section select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.4); /* Focus ring */
+        }
+        .nav-section button {
+            background-color: #4f46e5; /* Indigo */
+            color: #ffffff;
+        }
+        .nav-section button:hover {
+            background-color: #4338ca; /* Darker indigo */
+            transform: translateY(-1px);
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1rem; /* Rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            max-width: 90%;
+            width: 1000px; /* Increased max-width for better visualization */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background-color: #e2e8f0; /* Lighter blue-gray for canvas */
+            border-radius: 0.75rem;
+            border: 1px solid #cbd5e1;
+            display: block;
+            width: 100%;
+            max-width: 900px; /* Match container width */
+            height: 500px; /* Increased height for graph visualization */
+            margin-bottom: 1.5rem;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            width: 100%;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-color: #4f46e5; /* Indigo */
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca; /* Darker indigo */
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: #6b7280; /* Gray */
+            color: #ffffff;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563; /* Darker gray */
+            transform: translateY(-2px);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #4a5568; /* Darker gray text */
+        }
+        input[type="range"] {
+            width: 150px;
+            -webkit-appearance: none;
+            height: 8px;
+            background: #cbd5e1;
+            outline: none;
+            border-radius: 4px;
+            transition: opacity .2s;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .info-box {
+            background-color: #f8fafc; /* Lighter background for info */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 900px;
+            border: 1px solid #e2e8f0;
+            color: #334155; /* Darker text */
+        }
+        .info-box h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #1e293b; /* Even darker text */
+        }
+        .info-box p {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+        .info-box pre {
+            background-color: #1e293b; /* Dark background for code */
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace; /* Monospace font for code */
+            font-size: 0.9rem;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .input-group label {
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500; /* font-medium */
+            color: #4a5568; /* Darker gray text */
+        }
+        .input-group select {
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; /* rounded-md */
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff;
+            color: #334155;
+            font-size: 0.875rem;
+        }
+        .grid-placeholder {
+            width: 100%;
+            max-width: 900px;
+            height: 500px;
+            background-color: #e2e8f0;
+            border-radius: 0.75rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            color: #64748b;
+            border: 1px dashed #94a3b8;
+        }
+
+        /* Custom Modal Styling (for alerts) */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 0.75rem;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .modal-content h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #1e293b;
+        }
+        .modal-content p {
+            margin-bottom: 1.5rem;
+            color: #334155;
+        }
+        .modal-content button {
+            background-color: #4f46e5;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+        .modal-content button:hover {
+            background-color: #4338ca;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <h1>AlgoGlimps</h1>
+        <div class="nav-section">
+            <label for="modeSelect">Mode:</label>
+            <select id="modeSelect">
+                <option value="graph">Graph</option>
+                <option value="grid">Grid (Coming Soon)</option>
+            </select>
+        </div>
+        <div class="nav-section">
+            <label for="algorithmSelect">Algorithm:</label>
+            <select id="algorithmSelect">
+                <option value="bfs">Breadth-First Search (BFS)</option>
+                <option value="dfs">Depth-First Search (DFS)</option>
+                <option value="dijkstra">Dijkstra's Algorithm</option>
+                <option value="floyd-warshall">Floyd-Warshall Algorithm</option>
+                <option value="mst">Minimum Spanning Tree</option>
+            </select>
+        </div>
+        <div class="nav-section">
+            <button id="compareButton">Compare (Coming Soon)</button>
+        </div>
+    </nav>
+
+    <div class="main-content">
+        <div id="graphContainer" class="container">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4" id="algorithmTitle">Breadth-First Search (BFS)</h2>
+            <canvas id="visualizationCanvas"></canvas>
+
+            <div class="controls">
+                <div class="input-group">
+                    <label for="startNodeSelect">Start Node:</label>
+                    <select id="startNodeSelect" class="form-select"></select>
+                </div>
+                <div class="input-group" id="targetNodeGroup" style="display: none;">
+                    <label for="targetNodeSelect">Target Node:</label>
+                    <select id="targetNodeSelect" class="form-select"></select>
+                </div>
+                <button id="startButton" class="btn btn-primary">Start</button>
+                <button id="resetButton" class="btn btn-secondary">Reset</button>
+                <div class="slider-container">
+                    <label for="speedSlider" class="text-sm font-medium">Speed:</label>
+                    <input type="range" id="speedSlider" min="10" max="1000" value="200">
+                    <span id="speedValue" class="text-sm">200ms</span>
+                </div>
+            </div>
+
+            <div class="info-box" id="algorithmInfoBox">
+                <h3>Breadth-First Search (BFS) Algorithm</h3>
+                <p>
+                    Breadth-First Search (BFS) is an algorithm for traversing or searching tree or graph data structures. It starts at the tree root (or some arbitrary node of a graph, sometimes referred to as a 'search key'), and explores all of the neighbor nodes at the present depth before moving on to the nodes at the next depth level.
+                </p>
+                <p>
+                    BFS is commonly used to find the shortest path in an unweighted graph.
+                </p>
+                <h3>Pseudocode:</h3>
+                <pre>
+function BFS(graph, startNode):
+    create a queue Q
+    create a set of visited nodes V
+    add startNode to Q
+    add startNode to V
+
+    while Q is not empty:
+        currentNode = Q.dequeue()
+        process currentNode (e.g., print it)
+
+        for each neighbor of currentNode:
+            if neighbor is not in V:
+                add neighbor to V
+                add neighbor to Q
+                </pre>
+            </div>
+        </div>
+
+        <div id="gridContainer" class="container hidden">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Grid Visualization (Coming Soon)</h2>
+            <div class="grid-placeholder">
+                <p>Grid-based algorithms will be visualized here.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Alerts -->
+    <div id="customModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle"></h3>
+            <p id="modalMessage"></p>
+            <button id="modalCloseButton">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // Global state variables
+        let currentMode = 'graph'; // 'graph' or 'grid'
+        let currentAlgorithm = 'bfs'; // 'bfs', 'dfs', 'dijkstra', 'floyd-warshall', 'mst'
+        let animationSpeed = 200; // Milliseconds
+
+        // DOM Elements
+        const modeSelect = document.getElementById('modeSelect');
+        const algorithmSelect = document.getElementById('algorithmSelect');
+        const compareButton = document.getElementById('compareButton');
+
+        const graphContainer = document.getElementById('graphContainer');
+        const gridContainer = document.getElementById('gridContainer');
+
+        const algorithmTitle = document.getElementById('algorithmTitle');
+        const algorithmInfoBox = document.getElementById('algorithmInfoBox');
+
+        // Graph visualization elements (specific to graph mode)
+        const canvas = document.getElementById('visualizationCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValueSpan = document.getElementById('speedValue');
+        const startNodeSelect = document.getElementById('startNodeSelect');
+        const targetNodeSelect = document.getElementById('targetNodeSelect');
+        const targetNodeGroup = document.getElementById('targetNodeGroup');
+
+
+        // Custom Modal Elements
+        const customModal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCloseButton = document.getElementById('modalCloseButton');
+
+        // Graph definition (nodes and edges) - NOW WEIGHTED
+        const graph = {
+            'A': [{ node: 'B', weight: 4 }, { node: 'C', weight: 2 }],
+            'B': [{ node: 'A', weight: 4 }, { node: 'D', weight: 5 }, { node: 'E', weight: 10 }],
+            'C': [{ node: 'A', weight: 2 }, { node: 'F', weight: 3 }],
+            'D': [{ node: 'B', weight: 5 }],
+            'E': [{ node: 'B', weight: 10 }, { node: 'F', weight: 1 }],
+            'F': [{ node: 'C', weight: 3 }, { node: 'E', weight: 1 }, { node: 'G', weight: 8 }],
+            'G': [{ node: 'F', weight: 8 }]
+        };
+
+        // Node positions for drawing (fixed for now for a clear layout)
+        const nodePositions = {
+            'A': { x: 150, y: 100 },
+            'B': { x: 300, y: 50 },
+            'C': { x: 300, y: 150 },
+            'D': { x: 450, y: 50 },
+            'E': { x: 450, y: 250 },
+            'F': { x: 600, y: 150 },
+            'G': { x: 750, y: 150 }
+        };
+
+        const nodeRadius = 25;
+
+        // State variables for graph algorithm visualization
+        let visitedNodes = new Set();
+        let queueNodes = []; // For BFS
+        let stackNodes = []; // For DFS
+        let currentNode = null;
+        let visitedOrder = []; // To store the order of visited nodes
+        let isAlgorithmRunning = false; // Generic flag for any algorithm running
+
+        // Dijkstra specific state
+        let distances = {}; // Stores shortest distance from source
+        let previousNodes = {}; // Stores predecessor for path reconstruction
+        let finalizedNodes = new Set(); // Nodes whose shortest path is found
+        let pathNodes = []; // Nodes in the final shortest path
+
+        // --- Custom Modal Function ---
+        function showModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            customModal.style.display = 'flex'; // Show the modal
+        }
+
+        modalCloseButton.addEventListener('click', () => {
+            customModal.style.display = 'none'; // Hide the modal
+        });
+
+        // --- Priority Queue Implementation (Min-Heap) ---
+        // This is a basic implementation for demonstration.
+        // For a more robust solution, consider a library or a more optimized heap.
+        class MinPriorityQueue {
+            constructor() {
+                this.values = [];
+            }
+
+            enqueue(value, priority) {
+                this.values.push({ value, priority });
+                this.sort();
+            }
+
+            dequeue() {
+                return this.values.shift();
+            }
+
+            sort() {
+                this.values.sort((a, b) => a.priority - b.priority);
+            }
+
+            isEmpty() {
+                return this.values.length === 0;
+            }
+        }
+
+        // --- Core Functions for UI and State Management ---
+
+        // Function to update the UI based on current mode and algorithm
+        function updateUI() {
+            // Show/hide containers based on mode
+            if (currentMode === 'graph') {
+                graphContainer.classList.remove('hidden');
+                gridContainer.classList.add('hidden');
+                document.querySelector('.controls').classList.remove('hidden');
+
+                // Show/hide start/target node selects based on algorithm
+                if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'dijkstra') {
+                    startNodeSelect.parentElement.classList.remove('hidden');
+                } else {
+                    startNodeSelect.parentElement.classList.add('hidden');
+                }
+
+                if (currentAlgorithm === 'dijkstra') {
+                    targetNodeGroup.style.display = 'flex'; // Show target node for Dijkstra
+                } else {
+                    targetNodeGroup.style.display = 'none'; // Hide for others
+                }
+
+            } else if (currentMode === 'grid') {
+                graphContainer.classList.add('hidden');
+                gridContainer.classList.remove('hidden');
+                document.querySelector('.controls').classList.add('hidden');
+            }
+
+            // Update algorithm title and info box
+            switch (currentAlgorithm) {
+                case 'bfs':
+                    algorithmTitle.textContent = 'Breadth-First Search (BFS)';
+                    algorithmInfoBox.innerHTML = `
+                        <h3>Breadth-First Search (BFS) Algorithm</h3>
+                        <p>
+                            BFS is an algorithm for traversing or searching tree or graph data structures. It explores all of the neighbor nodes at the present depth before moving on to the nodes at the next depth level.
+                        </p>
+                        <p>
+                            BFS is commonly used to find the shortest path in an unweighted graph.
+                        </p>
+                        <h3>Pseudocode:</h3>
+                        <pre>
+function BFS(graph, startNode):
+    create a queue Q
+    create a set of visited nodes V
+    add startNode to Q
+    add startNode to V
+
+    while Q is not empty:
+        currentNode = Q.dequeue()
+        process currentNode (e.g., print it)
+
+        for each neighbor of currentNode:
+            if neighbor is not in V:
+                add neighbor to V
+                add neighbor to Q
+                        </pre>
+                    `;
+                    break;
+                case 'dfs':
+                    algorithmTitle.textContent = 'Depth-First Search (DFS)';
+                    algorithmInfoBox.innerHTML = `
+                        <h3>Depth-First Search (DFS) Algorithm</h3>
+                        <p>
+                            DFS is an algorithm for traversing or searching tree or graph data structures. It explores as far as possible along each branch before backtracking.
+                        </p>
+                        <p>
+                            DFS can be used to find connected components, cycles, and topological sorting.
+                        </p>
+                        <h3>Pseudocode:</h3>
+                        <pre>
+function DFS(graph, startNode):
+    create a stack S
+    create a set of visited nodes V
+    push startNode to S
+    add startNode to V
+
+    while S is not empty:
+        currentNode = S.pop()
+        process currentNode
+
+        for each neighbor of currentNode:
+            if neighbor is not in V:
+                add neighbor to V
+                push neighbor to S
+                        </pre>
+                    `;
+                    break;
+                case 'dijkstra':
+                    algorithmTitle.textContent = 'Dijkstra\'s Algorithm';
+                    algorithmInfoBox.innerHTML = `
+                        <h3>Dijkstra's Algorithm</h3>
+                        <p>
+                            Dijkstra's algorithm finds the shortest paths between nodes in a graph, which may have non-negative edge weights.
+                        </p>
+                        <p>
+                            It is widely used in network routing protocols.
+                        </p>
+                        <h3>Pseudocode:</h3>
+                        <pre>
+function Dijkstra(graph, startNode):
+    distances = map of nodes to infinity
+    distances[startNode] = 0
+    priorityQueue = add all nodes with their distances
+
+    while priorityQueue is not empty:
+        currentNode = node with smallest distance from priorityQueue
+        
+        for each neighbor of currentNode:
+            calculate newDistance = distances[currentNode] + weight(currentNode, neighbor)
+            if newDistance < distances[neighbor]:
+                distances[neighbor] = newDistance
+                update neighbor in priorityQueue
+                        </pre>
+                    `;
+                    break;
+                case 'floyd-warshall':
+                    algorithmTitle.textContent = 'Floyd-Warshall Algorithm (Coming Soon)';
+                    algorithmInfoBox.innerHTML = `
+                        <h3>Floyd-Warshall Algorithm</h3>
+                        <p>
+                            The Floyd-Warshall algorithm is an algorithm for finding shortest paths in a weighted graph with positive or negative edge weights (but no negative cycles).
+                        </p>
+                        <p>
+                            It computes shortest paths between all pairs of nodes.
+                        </p>
+                        <h3>Pseudocode:</h3>
+                        <pre>
+function FloydWarshall(graph):
+    dist = initialize distance matrix with edge weights or infinity
+    
+    for k from 0 to n-1:
+        for i from 0 to n-1:
+            for j from 0 to n-1:
+                dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
+                        </pre>
+                    `;
+                    break;
+                case 'mst':
+                    algorithmTitle.textContent = 'Minimum Spanning Tree (Coming Soon)';
+                    algorithmInfoBox.innerHTML = `
+                        <h3>Minimum Spanning Tree (MST)</h3>
+                        <p>
+                            A Minimum Spanning Tree (MST) is a subset of the edges of a connected, edge-weighted undirected graph that connects all the vertices together, without any cycles and with the minimum possible total edge weight.
+                        </p>
+                        <p>
+                            Common algorithms include Prim's and Kruskal's.
+                        </p>
+                        <h3>Pseudocode (Prim's):</h3>
+                        <pre>
+function Prim(graph):
+    min_cost_tree = empty set of edges
+    min_heap = priority queue of edges, ordered by weight
+    add all edges from start node to min_heap
+    visited_nodes = set containing start node
+
+    while min_heap is not empty and count(visited_nodes) < num_nodes:
+        edge = extract min edge from min_heap
+        if edge.destination not in visited_nodes:
+            add edge to min_cost_tree
+            add edge.destination to visited_nodes
+            for each neighbor of edge.destination:
+                add edge (edge.destination, neighbor) to min_heap
+                        </pre>
+                    `;
+                    break;
+            }
+            resetVisualization(); // Reset visualization when algorithm changes
+        }
+
+        // Function to populate the start and target node dropdowns for graph algorithms
+        function populateNodeSelects() {
+            startNodeSelect.innerHTML = ''; // Clear existing options
+            targetNodeSelect.innerHTML = '';
+            Object.keys(graph).forEach(node => {
+                const optionStart = document.createElement('option');
+                optionStart.value = node;
+                optionStart.textContent = node;
+                startNodeSelect.appendChild(optionStart);
+
+                const optionTarget = document.createElement('option');
+                optionTarget.value = node;
+                optionTarget.textContent = node;
+                targetNodeSelect.appendChild(optionTarget);
+            });
+            // Set default selected nodes
+            if (Object.keys(graph).length > 0) {
+                startNodeSelect.value = Object.keys(graph)[0];
+                targetNodeSelect.value = Object.keys(graph)[Object.keys(graph).length - 1]; // Default target to last node
+            }
+        }
+
+        // --- Graph Visualization Functions ---
+
+        // Function to draw the graph on the canvas
+        function drawGraph() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            // Draw edges first
+            ctx.lineWidth = 2;
+            ctx.font = '14px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (const node in graph) {
+                const startPos = nodePositions[node];
+                if (startPos) {
+                    for (const edge of graph[node]) {
+                        const neighbor = edge.node;
+                        const weight = edge.weight;
+                        const endPos = nodePositions[neighbor];
+                        if (endPos) {
+                            // Determine edge color
+                            ctx.strokeStyle = '#94a3b8'; // Default slate gray
+                            if (currentAlgorithm === 'dijkstra' && pathNodes.includes(node) && pathNodes.includes(neighbor) &&
+                                (pathNodes.indexOf(node) === pathNodes.indexOf(neighbor) - 1 || pathNodes.indexOf(neighbor) === pathNodes.indexOf(node) - 1)) {
+                                ctx.strokeStyle = '#059669'; // Green for shortest path edges
+                            }
+
+                            ctx.beginPath();
+                            ctx.moveTo(startPos.x, startPos.y);
+                            ctx.lineTo(endPos.x, endPos.y);
+                            ctx.stroke();
+
+                            // Draw weight
+                            const midX = (startPos.x + endPos.x) / 2;
+                            const midY = (startPos.y + endPos.y) / 2;
+
+                            // Calculate offset for text to avoid overlapping line
+                            const angle = Math.atan2(endPos.y - startPos.y, endPos.x - startPos.x);
+                            const offsetX = 15 * Math.sin(angle);
+                            const offsetY = 15 * -Math.cos(angle);
+
+                            ctx.fillStyle = '#1e293b'; // Dark text for weight
+                            ctx.fillText(weight, midX + offsetX, midY + offsetY);
+                        }
+                    }
+                }
+            }
+
+            // Draw nodes and labels
+            for (const node in nodePositions) {
+                const pos = nodePositions[node];
+
+                // Node fill color
+                let fillColor = '#60a5fa'; // Blue-500 default
+                if (visitedNodes.has(node)) {
+                    fillColor = '#10b981'; // Green-500 for visited (BFS/DFS)
+                }
+                if (queueNodes.includes(node)) {
+                    fillColor = '#f59e0b'; // Amber-500 for in BFS queue
+                }
+                if (stackNodes.includes(node)) {
+                    fillColor = '#8b5cf6'; // Purple-500 for in DFS stack
+                }
+                if (currentAlgorithm === 'dijkstra') {
+                    if (finalizedNodes.has(node)) {
+                        fillColor = '#10b981'; // Green for finalized (Dijkstra)
+                    }
+                    if (currentNode === node) {
+                        fillColor = '#ef4444'; // Red for current processing (all algos)
+                    }
+                    // Nodes in priority queue for Dijkstra could also have a distinct color if needed
+                } else { // For BFS/DFS, current node is red
+                    if (currentNode === node) {
+                        fillColor = '#ef4444'; // Red for current processing
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+                ctx.strokeStyle = '#334155'; // Darker border
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Node label
+                ctx.fillStyle = '#ffffff'; // White text
+                ctx.font = 'bold 18px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(node, pos.x, pos.y);
+
+                // Display distance for Dijkstra
+                if (currentAlgorithm === 'dijkstra' && distances[node] !== Infinity) {
+                    ctx.fillStyle = '#1e293b'; // Dark text for distance
+                    ctx.font = '12px Inter';
+                    ctx.fillText(distances[node], pos.x, pos.y + nodeRadius + 10); // Below the node
+                }
+            }
+        }
+
+        // --- Algorithm Implementations ---
+
+        // Breadth-First Search Algorithm with Visualization
+        async function bfs(startNode) {
+            isAlgorithmRunning = true;
+            startButton.disabled = true;
+            resetButton.disabled = true;
+            speedSlider.disabled = true;
+            startNodeSelect.disabled = true;
+            algorithmSelect.disabled = true;
+            modeSelect.disabled = true;
+            targetNodeSelect.disabled = true; // Disable target node for BFS
+
+            visitedNodes = new Set();
+            queueNodes = [];
+            stackNodes = [];
+            visitedOrder = [];
+            currentNode = null;
+            finalizedNodes = new Set(); // Clear Dijkstra specific state
+            pathNodes = []; // Clear Dijkstra specific state
+
+            const queue = [];
+
+            queue.push(startNode);
+            visitedNodes.add(startNode);
+            queueNodes.push(startNode);
+
+            drawGraph();
+            await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+            while (queue.length > 0) {
+                const node = queue.shift();
+                currentNode = node;
+                queueNodes = queueNodes.filter(n => n !== node);
+
+                visitedOrder.push(node);
+
+                drawGraph();
+                await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+                // Get neighbors from the weighted graph structure
+                for (const edge of graph[node]) {
+                    const neighbor = edge.node;
+                    if (!visitedNodes.has(neighbor)) {
+                        visitedNodes.add(neighbor);
+                        queue.push(neighbor);
+                        queueNodes.push(neighbor);
+                        drawGraph();
+                        await new Promise(resolve => setTimeout(resolve, animationSpeed));
+                    }
+                }
+            }
+
+            currentNode = null;
+            queueNodes = [];
+            drawGraph();
+            isAlgorithmRunning = false;
+            startButton.disabled = false;
+            resetButton.disabled = false;
+            speedSlider.disabled = false;
+            startNodeSelect.disabled = false;
+            algorithmSelect.disabled = false;
+            modeSelect.disabled = false;
+            targetNodeSelect.disabled = false;
+            console.log("BFS Traversal Order:", visitedOrder.join(' -> '));
+            showModal("BFS Complete!", `Traversal Order: ${visitedOrder.join(' -> ')}`);
+        }
+
+        // Depth-First Search Algorithm with Visualization (Iterative)
+        async function dfs(startNode) {
+            isAlgorithmRunning = true;
+            startButton.disabled = true;
+            resetButton.disabled = true;
+            speedSlider.disabled = true;
+            startNodeSelect.disabled = true;
+            algorithmSelect.disabled = true;
+            modeSelect.disabled = true;
+            targetNodeSelect.disabled = true; // Disable target node for DFS
+
+            visitedNodes = new Set();
+            queueNodes = [];
+            stackNodes = [];
+            visitedOrder = [];
+            currentNode = null;
+            finalizedNodes = new Set(); // Clear Dijkstra specific state
+            pathNodes = []; // Clear Dijkstra specific state
+
+            const stack = [];
+
+            stack.push(startNode);
+            stackNodes.push(startNode);
+
+            drawGraph();
+            await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+            while (stack.length > 0) {
+                const node = stack.pop();
+                currentNode = node;
+                stackNodes = stackNodes.filter(n => n !== node);
+
+                if (!visitedNodes.has(node)) {
+                    visitedNodes.add(node);
+                    visitedOrder.push(node);
+
+                    drawGraph();
+                    await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+                    // Get neighbors from the weighted graph structure
+                    // Sort and reverse for consistent stack behavior (alphabetical exploration)
+                    const neighbors = graph[node].map(edge => edge.node).sort().reverse();
+
+                    for (const neighbor of neighbors) {
+                        if (!visitedNodes.has(neighbor)) {
+                            stack.push(neighbor);
+                            stackNodes.push(neighbor);
+                            drawGraph();
+                            await new Promise(resolve => setTimeout(resolve, animationSpeed));
+                        }
+                    }
+                }
+            }
+
+            currentNode = null;
+            stackNodes = [];
+            drawGraph();
+            isAlgorithmRunning = false;
+            startButton.disabled = false;
+            resetButton.disabled = false;
+            speedSlider.disabled = false;
+            startNodeSelect.disabled = false;
+            algorithmSelect.disabled = false;
+            modeSelect.disabled = false;
+            targetNodeSelect.disabled = false;
+            console.log("DFS Traversal Order:", visitedOrder.join(' -> '));
+            showModal("DFS Complete!", `Traversal Order: ${visitedOrder.join(' -> ')}`);
+        }
+
+        // Dijkstra's Algorithm with Visualization
+        async function dijkstra(startNode, targetNode) {
+            isAlgorithmRunning = true;
+            startButton.disabled = true;
+            resetButton.disabled = true;
+            speedSlider.disabled = true;
+            startNodeSelect.disabled = true;
+            targetNodeSelect.disabled = true;
+            algorithmSelect.disabled = true;
+            modeSelect.disabled = true;
+
+            // Reset Dijkstra specific state
+            distances = {};
+            previousNodes = {};
+            finalizedNodes = new Set();
+            pathNodes = [];
+
+            // Reset general visualization state
+            visitedNodes = new Set();
+            queueNodes = [];
+            stackNodes = [];
+            currentNode = null;
+            visitedOrder = [];
+
+            const priorityQueue = new MinPriorityQueue();
+
+            // Initialize distances
+            for (const node in graph) {
+                distances[node] = Infinity;
+                previousNodes[node] = null;
+            }
+            distances[startNode] = 0;
+            priorityQueue.enqueue(startNode, 0);
+
+            drawGraph();
+            await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+            while (!priorityQueue.isEmpty()) {
+                const { value: node, priority: currentDistance } = priorityQueue.dequeue();
+                currentNode = node;
+
+                // If we've already found a shorter path, skip
+                if (currentDistance > distances[node]) {
+                    continue;
+                }
+
+                // Mark node as finalized
+                finalizedNodes.add(node);
+                drawGraph(); // Update color for finalized node
+                await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+                // If target node is reached, reconstruct path and finish
+                if (node === targetNode) {
+                    let pathCurrent = targetNode;
+                    while (pathCurrent) {
+                        pathNodes.unshift(pathCurrent);
+                        pathCurrent = previousNodes[pathCurrent];
+                    }
+                    drawGraph(); // Draw final path
+                    break; // Exit loop
+                }
+
+                // Explore neighbors
+                for (const edge of graph[node]) {
+                    const neighbor = edge.node;
+                    const weight = edge.weight;
+                    const newDistance = distances[node] + weight;
+
+                    // If a shorter path to neighbor is found
+                    if (newDistance < distances[neighbor]) {
+                        distances[neighbor] = newDistance;
+                        previousNodes[neighbor] = node;
+                        priorityQueue.enqueue(neighbor, newDistance);
+                        drawGraph(); // Update neighbor's distance and potentially color
+                        await new Promise(resolve => setTimeout(resolve, animationSpeed));
+                    }
+                }
+            }
+
+            currentNode = null;
+            drawGraph(); // Final draw
+            isAlgorithmRunning = false;
+            startButton.disabled = false;
+            resetButton.disabled = false;
+            speedSlider.disabled = false;
+            startNodeSelect.disabled = false;
+            targetNodeSelect.disabled = false;
+            algorithmSelect.disabled = false;
+            modeSelect.disabled = false;
+
+            let resultMessage = `Shortest path from ${startNode} to ${targetNode}: `;
+            if (distances[targetNode] === Infinity) {
+                resultMessage += "No path found.";
+            } else {
+                resultMessage += `${pathNodes.join(' -> ')} (Total Distance: ${distances[targetNode]})`;
+            }
+            showModal("Dijkstra's Algorithm Complete!", resultMessage);
+            console.log("Dijkstra's Distances:", distances);
+            console.log("Dijkstra's Previous Nodes:", previousNodes);
+        }
+
+        // Placeholder for Floyd-Warshall
+        async function floydWarshall() {
+            console.log("Floyd-Warshall algorithm started.");
+            isAlgorithmRunning = true;
+            startButton.disabled = true;
+            resetButton.disabled = true;
+            speedSlider.disabled = true;
+            startNodeSelect.disabled = true;
+            targetNodeSelect.disabled = true;
+            algorithmSelect.disabled = true;
+            modeSelect.disabled = true;
+
+            await new Promise(resolve => setTimeout(resolve, animationSpeed * 5));
+
+            isAlgorithmRunning = false;
+            startButton.disabled = false;
+            resetButton.disabled = false;
+            speedSlider.disabled = false;
+            startNodeSelect.disabled = false;
+            targetNodeSelect.disabled = false;
+            algorithmSelect.disabled = false;
+            modeSelect.disabled = false;
+            showModal("Floyd-Warshall Algorithm", "Floyd-Warshall algorithm visualization coming soon!");
+        }
+
+        // Placeholder for Minimum Spanning Tree
+        async function minimumSpanningTree() {
+            console.log("Minimum Spanning Tree algorithm started.");
+            isAlgorithmRunning = true;
+            startButton.disabled = true;
+            resetButton.disabled = true;
+            speedSlider.disabled = true;
+            startNodeSelect.disabled = true;
+            targetNodeSelect.disabled = true;
+            algorithmSelect.disabled = true;
+            modeSelect.disabled = true;
+
+            await new Promise(resolve => setTimeout(resolve, animationSpeed * 5));
+
+            isAlgorithmRunning = false;
+            startButton.disabled = false;
+            resetButton.disabled = false;
+            speedSlider.disabled = false;
+            startNodeSelect.disabled = false;
+            targetNodeSelect.disabled = false;
+            algorithmSelect.disabled = false;
+            modeSelect.disabled = false;
+            showModal("Minimum Spanning Tree", "Minimum Spanning Tree visualization coming soon!");
+        }
+
+
+        // Function to reset the current visualization state
+        function resetVisualization() {
+            visitedNodes = new Set();
+            queueNodes = [];
+            stackNodes = [];
+            currentNode = null;
+            visitedOrder = [];
+            // Reset Dijkstra specific state
+            distances = {};
+            previousNodes = {};
+            finalizedNodes = new Set();
+            pathNodes = [];
+
+            if (currentMode === 'graph') {
+                drawGraph();
+            } else if (currentMode === 'grid') {
+                // Placeholder for grid reset
+                console.log("Grid reset logic here.");
+            }
+            startButton.disabled = false;
+            resetButton.disabled = false;
+            speedSlider.disabled = false;
+            startNodeSelect.disabled = false;
+            targetNodeSelect.disabled = false;
+            algorithmSelect.disabled = false;
+            modeSelect.disabled = false;
+            customModal.style.display = 'none'; // Hide modal on reset
+        }
+
+        // --- Event Listeners ---
+
+        modeSelect.addEventListener('change', (event) => {
+            currentMode = event.target.value;
+            updateUI();
+            resetVisualization(); // Reset when mode changes
+        });
+
+        algorithmSelect.addEventListener('change', (event) => {
+            currentAlgorithm = event.target.value;
+            updateUI();
+            resetVisualization(); // Reset when algorithm changes
+        });
+
+        startButton.addEventListener('click', () => {
+            if (!isAlgorithmRunning) {
+                if (currentMode === 'graph') {
+                    const selectedStartNode = startNodeSelect.value;
+                    const selectedTargetNode = targetNodeSelect.value;
+                    switch (currentAlgorithm) {
+                        case 'bfs':
+                            bfs(selectedStartNode);
+                            break;
+                        case 'dfs':
+                            dfs(selectedStartNode);
+                            break;
+                        case 'dijkstra':
+                            dijkstra(selectedStartNode, selectedTargetNode);
+                            break;
+                        case 'floyd-warshall':
+                            floydWarshall();
+                            break;
+                        case 'mst':
+                            minimumSpanningTree();
+                            break;
+                    }
+                } else if (currentMode === 'grid') {
+                    showModal("Feature Not Ready", "Grid algorithms are not yet implemented. Please select 'Graph' mode.");
+                }
+            }
+        });
+
+        resetButton.addEventListener('click', () => {
+            resetVisualization();
+        });
+
+        speedSlider.addEventListener('input', (event) => {
+            animationSpeed = parseInt(event.target.value);
+            speedValueSpan.textContent = `${animationSpeed}ms`;
+        });
+
+        // Initialize on load
+        window.onload = function() {
+            // Set canvas dimensions based on its container, but cap max width
+            const containerWidth = canvas.parentElement.clientWidth;
+            canvas.width = Math.min(containerWidth * 0.9, 900); // 90% of container width, max 900px
+            canvas.height = 500; // Fixed height for graph
+
+            populateNodeSelects(); // Populate both start and target
+            updateUI(); // Initial UI setup
+            drawGraph(); // Initial graph draw
+        };
+
+        // Handle window resize to make canvas responsive
+        window.addEventListener('resize', () => {
+            if (currentMode === 'graph') {
+                const containerWidth = canvas.parentElement.clientWidth;
+                canvas.width = Math.min(containerWidth * 0.9, 900);
+                drawGraph(); // Redraw graph to fit new canvas size
+            }
+            // No specific resize for grid placeholder needed right now
+        });
+    </script>
+</body>
+</html>
