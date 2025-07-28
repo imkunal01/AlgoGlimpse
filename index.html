@@ -979,6 +979,10 @@ function BFS_Grid(grid, startNode, endNode):
         // Grid Interaction State
         let currentGridInteractionMode = 'none'; // 'none', 'set-start', 'set-end', 'add-wall', 'remove-wall'
 
+        // Compare Mode State
+        let visitOrder1 = []; // Store the node visit order for algorithm 1
+        let visitOrder2 = []; // Store the node visit order for algorithm 2
+
 
         // --- Custom Modal Function ---
         function showModal(title, message) {
@@ -2232,6 +2236,10 @@ function BFS_Grid(grid, startNode, endNode):
             compareResult1Div.innerHTML = '';
             compareResult2Div.innerHTML = '';
             compareResultsDiv.classList.add('hidden');
+            
+            // Reset the node visit order for each algorithm
+            visitOrder1 = [];
+            visitOrder2 = [];
 
             // --- Run Algorithm 1 ---
             compareCanvasTitle1.textContent = getAlgorithmName(algo1);
@@ -2244,27 +2252,47 @@ function BFS_Grid(grid, startNode, endNode):
             switch (algo1) {
                 case 'bfs':
                     await bfs(compareCtx1, graphCopy1, nodePositionsCopy1, startNode, speed, {
-                        onComplete: (res) => { result1 = { name: 'BFS', ...res }; }
+                        onComplete: (res) => { 
+                            result1 = { name: 'BFS', ...res }; 
+                            visitOrder1 = res.order ? res.order.split(',') : [];
+                        }
                     });
                     break;
                 case 'dfs':
                     await dfs(compareCtx1, graphCopy1, nodePositionsCopy1, startNode, speed, {
-                        onComplete: (res) => { result1 = { name: 'DFS', ...res }; }
+                        onComplete: (res) => { 
+                            result1 = { name: 'DFS', ...res }; 
+                            visitOrder1 = res.order ? res.order.split(',') : [];
+                        }
                     });
                     break;
                 case 'dijkstra':
                     await dijkstra(compareCtx1, graphCopy1, nodePositionsCopy1, startNode, targetNode, speed, {
-                        onComplete: (res) => { result1 = { name: 'Dijkstra', ...res }; }
+                        onComplete: (res) => { 
+                            result1 = { name: 'Dijkstra', ...res }; 
+                            // For Dijkstra, we'll use the visited nodes in order
+                            visitOrder1 = res.visitedOrder || [];
+                        }
                     });
                     break;
                 case 'floyd-warshall':
                     await floydWarshall(compareCtx1, graphCopy1, nodePositionsCopy1, nodesArrayCopy1, speed, {
-                        onComplete: (res) => { result1 = { name: 'Floyd-Warshall', ...res }; }
+                        onComplete: (res) => { 
+                            result1 = { name: 'Floyd-Warshall', ...res }; 
+                            // Floyd-Warshall doesn't have a simple visit order
+                            visitOrder1 = [];
+                        }
                     });
                     break;
                 case 'mst':
                     await primMST(compareCtx1, graphCopy1, nodePositionsCopy1, startNode, nodesArrayCopy1, speed, {
-                        onComplete: (res) => { result1 = { name: 'MST', ...res }; }
+                        onComplete: (res) => { 
+                            result1 = { name: 'MST', ...res }; 
+                            // For MST, we'll use the edges to determine visit order
+                            visitOrder1 = Array.from(res.edges || new Set()).map(edge => edge.split('-')[0]);
+                            // Remove duplicates
+                            visitOrder1 = [...new Set(visitOrder1)];
+                        }
                     });
                     break;
             }
@@ -2282,27 +2310,47 @@ function BFS_Grid(grid, startNode, endNode):
             switch (algo2) {
                 case 'bfs':
                     await bfs(compareCtx2, graphCopy2, nodePositionsCopy2, startNode, speed, {
-                        onComplete: (res) => { result2 = { name: 'BFS', ...res }; }
+                        onComplete: (res) => { 
+                            result2 = { name: 'BFS', ...res }; 
+                            visitOrder2 = res.order ? res.order.split(',') : [];
+                        }
                     });
                     break;
                 case 'dfs':
                     await dfs(compareCtx2, graphCopy2, nodePositionsCopy2, startNode, speed, {
-                        onComplete: (res) => { result2 = { name: 'DFS', ...res }; }
+                        onComplete: (res) => { 
+                            result2 = { name: 'DFS', ...res }; 
+                            visitOrder2 = res.order ? res.order.split(',') : [];
+                        }
                     });
                     break;
                 case 'dijkstra':
                     await dijkstra(compareCtx2, graphCopy2, nodePositionsCopy2, startNode, targetNode, speed, {
-                        onComplete: (res) => { result2 = { name: 'Dijkstra', ...res }; }
+                        onComplete: (res) => { 
+                            result2 = { name: 'Dijkstra', ...res }; 
+                            // For Dijkstra, we'll use the visited nodes in order
+                            visitOrder2 = res.visitedOrder || [];
+                        }
                     });
                     break;
                 case 'floyd-warshall':
                     await floydWarshall(compareCtx2, graphCopy2, nodePositionsCopy2, nodesArrayCopy2, speed, {
-                        onComplete: (res) => { result2 = { name: 'Floyd-Warshall', ...res }; }
+                        onComplete: (res) => { 
+                            result2 = { name: 'Floyd-Warshall', ...res }; 
+                            // Floyd-Warshall doesn't have a simple visit order
+                            visitOrder2 = [];
+                        }
                     });
                     break;
                 case 'mst':
                     await primMST(compareCtx2, graphCopy2, nodePositionsCopy2, startNode, nodesArrayCopy2, speed, {
-                        onComplete: (res) => { result2 = { name: 'MST', ...res }; }
+                        onComplete: (res) => { 
+                            result2 = { name: 'MST', ...res }; 
+                            // For MST, we'll use the edges to determine visit order
+                            visitOrder2 = Array.from(res.edges || new Set()).map(edge => edge.split('-')[0]);
+                            // Remove duplicates
+                            visitOrder2 = [...new Set(visitOrder2)];
+                        }
                     });
                     break;
             }
@@ -2326,28 +2374,56 @@ function BFS_Grid(grid, startNode, endNode):
         function displayComparisonResults(result1, result2) {
             compareResultsDiv.classList.remove('hidden');
             
-            let result1Html = `<span>${result1.name} Result:</span>`;
+            let result1Html = `<span class="font-bold text-lg">${result1.name} Result:</span>`;
             if (result1.pathLength !== undefined) {
-                result1Html += `<span>Path Length: ${result1.pathLength === Infinity ? 'No Path' : result1.pathLength}</span>`;
+                result1Html += `<div>Path Length: ${result1.pathLength === Infinity ? 'No Path' : result1.pathLength}</div>`;
             } else if (result1.visitedCount !== undefined) {
-                result1Html += `<span>Visited Nodes: ${result1.visitedCount}</span>`;
+                result1Html += `<div>Visited Nodes: ${result1.visitedCount}</div>`;
             } else if (result1.totalWeight !== undefined) {
-                result1Html += `<span>Total MST Weight: ${result1.totalWeight}</span>`;
+                result1Html += `<div>Total MST Weight: ${result1.totalWeight}</div>`;
             } else if (result1.finalMatrix) {
-                result1Html += `<span>Matrix Calculated</span>`;
+                result1Html += `<div>Matrix Calculated</div>`;
             }
+            
+            // Add node visit order information
+            if (visitOrder1.length > 0) {
+                result1Html += `<div class="mt-2"><strong>Visit Order:</strong> ${visitOrder1.join(' → ')}</div>`;
+                
+                // Add a visual representation of the visit order
+                result1Html += `<div class="mt-2 flex flex-wrap gap-1">`;
+                visitOrder1.forEach((node, index) => {
+                    result1Html += `<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-xs font-bold" 
+                                    title="Visit #${index + 1}">${node}<span class="text-[8px] ml-1">${index + 1}</span></div>`;
+                });
+                result1Html += `</div>`;
+            }
+            
             compareResult1Div.innerHTML = result1Html;
 
-            let result2Html = `<span>${result2.name} Result:</span>`;
+            let result2Html = `<span class="font-bold text-lg">${result2.name} Result:</span>`;
             if (result2.pathLength !== undefined) {
-                result2Html += `<span>Path Length: ${result2.pathLength === Infinity ? 'No Path' : result2.pathLength}</span>`;
+                result2Html += `<div>Path Length: ${result2.pathLength === Infinity ? 'No Path' : result2.pathLength}</div>`;
             } else if (result2.visitedCount !== undefined) {
-                result2Html += `<span>Visited Nodes: ${result2.visitedCount}</span>`;
+                result2Html += `<div>Visited Nodes: ${result2.visitedCount}</div>`;
             } else if (result2.totalWeight !== undefined) {
-                result2Html += `<span>Total MST Weight: ${result2.totalWeight}</span>`;
+                result2Html += `<div>Total MST Weight: ${result2.totalWeight}</div>`;
             } else if (result2.finalMatrix) {
-                result2Html += `<span>Matrix Calculated</span>`;
+                result2Html += `<div>Matrix Calculated</div>`;
             }
+            
+            // Add node visit order information
+            if (visitOrder2.length > 0) {
+                result2Html += `<div class="mt-2"><strong>Visit Order:</strong> ${visitOrder2.join(' → ')}</div>`;
+                
+                // Add a visual representation of the visit order
+                result2Html += `<div class="mt-2 flex flex-wrap gap-1">`;
+                visitOrder2.forEach((node, index) => {
+                    result2Html += `<div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white text-xs font-bold" 
+                                    title="Visit #${index + 1}">${node}<span class="text-[8px] ml-1">${index + 1}</span></div>`;
+                });
+                result2Html += `</div>`;
+            }
+            
             compareResult2Div.innerHTML = result2Html;
         }
 
@@ -2575,9 +2651,9 @@ function BFS_Grid(grid, startNode, endNode):
             gridCanvas.height = 500;
 
             // Compare canvases are slightly larger for better visibility
-            compareCanvas1.width = Math.min(containerWidth * 0.45, 440);
+            compareCanvas1.width = Math.min(containerWidth * 0.8, 840);
             compareCanvas1.height = 400; // Increased height
-            compareCanvas2.width = Math.min(containerWidth * 0.45, 440);
+            compareCanvas2.width = Math.min(containerWidth * 0.8, 840);
             compareCanvas2.height = 400; // Increased height
 
 
@@ -2890,6 +2966,93 @@ function BFS_Grid(grid, startNode, endNode):
             gridCanvas.addEventListener('mouseleave', () => {
                 if (currentMode !== 'grid') return;
                 isDrawingWalls = false; // Stop drawing walls if mouse leaves canvas
+            });
+
+            // --- Canvas Mouse Event Listeners for Compare Mode Canvases ---
+            // Variables to track which canvas is being interacted with
+            let draggedNodeCompare1 = null;
+            let draggedNodeCompare2 = null;
+            
+            // Event listeners for compareCanvas1
+            compareCanvas1.addEventListener('mousedown', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'compare') return;
+
+                const rect = compareCanvas1.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const clickedNode = getNodeAt(x, y, nodePositions);
+
+                if (clickedNode) {
+                    draggedNodeCompare1 = clickedNode;
+                }
+            });
+
+            compareCanvas1.addEventListener('mousemove', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'compare' || !draggedNodeCompare1) return;
+
+                const rect = compareCanvas1.getBoundingClientRect();
+                const rawMouseX = e.clientX - rect.left;
+                const rawMouseY = e.clientY - rect.top;
+
+                // Calculate current scaling factors for unscaling mouse coordinates
+                const scaleX = compareCanvas1.width / REFERENCE_CANVAS_WIDTH;
+                const scaleY = compareCanvas1.height / REFERENCE_CANVAS_HEIGHT;
+
+                // Update node position
+                nodePositions[draggedNodeCompare1].x = rawMouseX / scaleX;
+                nodePositions[draggedNodeCompare1].y = rawMouseY / scaleY;
+                
+                // Redraw both canvases to keep them in sync
+                drawGraph(compareCtx1, graph, nodePositions, { highlightedNode: draggedNodeCompare1 });
+                drawGraph(compareCtx2, graph, nodePositions, {});
+            });
+
+            compareCanvas1.addEventListener('mouseup', () => {
+                if (isAlgorithmRunning || currentMode !== 'compare') return;
+                draggedNodeCompare1 = null; // Stop dragging
+                drawGraph(compareCtx1, graph, nodePositions, {});
+                drawGraph(compareCtx2, graph, nodePositions, {});
+            });
+            
+            // Event listeners for compareCanvas2
+            compareCanvas2.addEventListener('mousedown', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'compare') return;
+
+                const rect = compareCanvas2.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const clickedNode = getNodeAt(x, y, nodePositions);
+
+                if (clickedNode) {
+                    draggedNodeCompare2 = clickedNode;
+                }
+            });
+
+            compareCanvas2.addEventListener('mousemove', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'compare' || !draggedNodeCompare2) return;
+
+                const rect = compareCanvas2.getBoundingClientRect();
+                const rawMouseX = e.clientX - rect.left;
+                const rawMouseY = e.clientY - rect.top;
+
+                // Calculate current scaling factors for unscaling mouse coordinates
+                const scaleX = compareCanvas2.width / REFERENCE_CANVAS_WIDTH;
+                const scaleY = compareCanvas2.height / REFERENCE_CANVAS_HEIGHT;
+
+                // Update node position
+                nodePositions[draggedNodeCompare2].x = rawMouseX / scaleX;
+                nodePositions[draggedNodeCompare2].y = rawMouseY / scaleY;
+                
+                // Redraw both canvases to keep them in sync
+                drawGraph(compareCtx1, graph, nodePositions, {});
+                drawGraph(compareCtx2, graph, nodePositions, { highlightedNode: draggedNodeCompare2 });
+            });
+
+            compareCanvas2.addEventListener('mouseup', () => {
+                if (isAlgorithmRunning || currentMode !== 'compare') return;
+                draggedNodeCompare2 = null; // Stop dragging
+                drawGraph(compareCtx1, graph, nodePositions, {});
+                drawGraph(compareCtx2, graph, nodePositions, {});
             });
 
             // Handle window resize to make canvas responsive
