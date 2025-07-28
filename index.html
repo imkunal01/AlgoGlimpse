@@ -471,6 +471,9 @@ function BFS(graph, startNode):
         const distanceMatrixTableDiv = document.getElementById('distanceMatrixTable');
 
         // Graph definition (nodes and edges) - NOW WEIGHTED
+        // Note: For MST, the graph should ideally be undirected.
+        // For simplicity in this visualization, we'll treat existing edges as bidirectional
+        // for MST purposes, even if defined as one-way in the adjacency list.
         const graph = {
             'A': [{ node: 'B', weight: 4 }, { node: 'C', weight: 2 }],
             'B': [{ node: 'A', weight: 4 }, { node: 'D', weight: 5 }, { node: 'E', weight: 10 }],
@@ -514,6 +517,10 @@ function BFS(graph, startNode):
         let floydDistMatrix = []; // Current distance matrix for visualization
         let floydPathMatrix = []; // Path reconstruction matrix (optional for visualization)
         let currentK = -1, currentI = -1, currentJ = -1; // Indices for highlighting in matrix
+
+        // MST specific state
+        let mstEdges = new Set(); // Edges that are part of the MST
+        let mstTotalWeight = 0;
 
         // --- Custom Modal Function ---
         function showModal(title, message) {
@@ -563,7 +570,7 @@ function BFS(graph, startNode):
                 document.querySelector('.controls').classList.remove('hidden');
 
                 // Show/hide start/target node selects based on algorithm
-                if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'dijkstra') {
+                if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'dijkstra' || currentAlgorithm === 'mst') {
                     startNodeGroup.style.display = 'flex';
                 } else {
                     startNodeGroup.style.display = 'none';
@@ -699,30 +706,30 @@ function FloydWarshall(graph):
                     `;
                     break;
                 case 'mst':
-                    algorithmTitle.textContent = 'Minimum Spanning Tree (Coming Soon)';
+                    algorithmTitle.textContent = 'Minimum Spanning Tree (Prim\'s Algorithm)';
                     algorithmInfoBox.innerHTML = `
-                        <h3>Minimum Spanning Tree (MST)</h3>
+                        <h3>Minimum Spanning Tree (MST) - Prim's Algorithm</h3>
                         <p>
-                            A Minimum Spanning Tree (MST) is a subset of the edges of a connected, edge-weighted undirected graph that connects all the vertices together, without any cycles and with the minimum possible total edge weight.
-                        </p>
-                        <p>
-                            Common algorithms include Prim's and Kruskal's.
+                            Prim's algorithm is a greedy algorithm that finds a minimum spanning tree for a weighted undirected graph. It starts from an arbitrary vertex and grows the MST by adding the cheapest edge from the tree to a vertex not yet in the tree.
                         </p>
                         <h3>Pseudocode (Prim's):</h3>
                         <pre>
-function Prim(graph):
-    min_cost_tree = empty set of edges
-    min_heap = priority queue of edges, ordered by weight
-    add all edges from start node to min_heap
-    visited_nodes = set containing start node
+function Prim(graph, startNode):
+    min_cost = map of nodes to infinity
+    parent = map of nodes to null
+    min_cost[startNode] = 0
+    priorityQueue = add all nodes with their min_cost
 
-    while min_heap is not empty and count(visited_nodes) < num_nodes:
-        edge = extract min edge from min_heap
-        if edge.destination not in visited_nodes:
-            add edge to min_cost_tree
-            add edge.destination to visited_nodes
-            for each neighbor of edge.destination:
-                add edge (edge.destination, neighbor) to min_heap
+    while priorityQueue is not empty:
+        currentNode = node with smallest min_cost from priorityQueue
+        
+        add currentNode to MST
+        
+        for each neighbor of currentNode:
+            if neighbor is not in MST and weight(currentNode, neighbor) < min_cost[neighbor]:
+                min_cost[neighbor] = weight(currentNode, neighbor)
+                parent[neighbor] = currentNode
+                update neighbor in priorityQueue
                         </pre>
                     `;
                     break;
@@ -774,13 +781,17 @@ function Prim(graph):
                         if (endPos) {
                             // Determine edge color
                             ctx.strokeStyle = '#94a3b8'; // Default slate gray
+                            // For undirected graph visualization, ensure only one edge is drawn
+                            // by checking if we've already drawn it from the other direction.
+                            // This simple check works for this fixed graph.
+                            const edgeKey1 = `${node}-${neighbor}`;
+                            const edgeKey2 = `${neighbor}-${node}`;
+
                             if (currentAlgorithm === 'dijkstra' && pathNodes.includes(node) && pathNodes.includes(neighbor) &&
                                 (pathNodes.indexOf(node) === pathNodes.indexOf(neighbor) - 1 || pathNodes.indexOf(neighbor) === pathNodes.indexOf(node) - 1)) {
                                 ctx.strokeStyle = '#059669'; // Green for shortest path edges
-                            } else if (currentAlgorithm === 'floyd-warshall') {
-                                // No specific edge highlighting during Floyd-Warshall iteration on graph,
-                                // but we can highlight edges related to current K node if desired.
-                                // For now, keep default.
+                            } else if (currentAlgorithm === 'mst' && (mstEdges.has(edgeKey1) || mstEdges.has(edgeKey2))) {
+                                ctx.strokeStyle = '#059669'; // Green for MST edges
                             }
 
                             ctx.beginPath();
@@ -831,7 +842,15 @@ function Prim(graph):
                     if (i === currentK) { // Highlight current 'k' node for Floyd-Warshall
                         fillColor = '#ef4444'; // Red
                     }
-                } else { // For BFS/DFS, current node is red
+                } else if (currentAlgorithm === 'mst') {
+                    if (visitedNodes.has(node)) { // For MST, visitedNodes means it's part of the growing tree
+                        fillColor = '#10b981'; // Green for nodes in MST
+                    }
+                    if (currentNode === node) {
+                        fillColor = '#ef4444'; // Red for current node being processed
+                    }
+                }
+                else { // For BFS/DFS, current node is red
                     if (currentNode === node) {
                         fillColor = '#ef4444'; // Red for current processing
                     }
@@ -911,6 +930,8 @@ function Prim(graph):
             floydDistMatrix = []; // Clear Floyd-Warshall specific state
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
+            mstEdges = new Set(); // Clear MST specific state
+            mstTotalWeight = 0;
 
             const queue = [];
 
@@ -979,6 +1000,8 @@ function Prim(graph):
             floydDistMatrix = []; // Clear Floyd-Warshall specific state
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
+            mstEdges = new Set(); // Clear MST specific state
+            mstTotalWeight = 0;
 
             const stack = [];
 
@@ -1054,7 +1077,8 @@ function Prim(graph):
             floydDistMatrix = []; // Clear Floyd-Warshall specific state
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
-
+            mstEdges = new Set(); // Clear MST specific state
+            mstTotalWeight = 0;
 
             const priorityQueue = new MinPriorityQueue();
 
@@ -1145,10 +1169,12 @@ function Prim(graph):
             stackNodes = [];
             currentNode = null;
             visitedOrder = [];
-            distances = {}; // Clear Dijkstra specific state
+            distances = {};
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
+            mstEdges = new Set(); // Clear MST specific state
+            mstTotalWeight = 0;
 
             // Initialize distance matrix
             floydDistMatrix = Array(numNodes).fill(0).map(() => Array(numNodes).fill(Infinity));
@@ -1214,20 +1240,94 @@ function Prim(graph):
             showModal("Floyd-Warshall Algorithm Complete!", "All-pairs shortest paths calculated. Check the Distance Matrix below.");
         }
 
-        // Placeholder for Minimum Spanning Tree
-        async function minimumSpanningTree() {
-            console.log("Minimum Spanning Tree algorithm started.");
+        // Minimum Spanning Tree (Prim's Algorithm) with Visualization
+        async function primMST(startNode) {
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
             speedSlider.disabled = true;
             startNodeSelect.disabled = true;
-            targetNodeSelect.disabled = true;
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
+            targetNodeSelect.disabled = true;
 
-            await new Promise(resolve => setTimeout(resolve, animationSpeed * 5));
+            // Reset MST specific state
+            mstEdges = new Set();
+            mstTotalWeight = 0;
 
+            // Reset general visualization state
+            visitedNodes = new Set(); // Nodes included in MST
+            queueNodes = [];
+            stackNodes = [];
+            currentNode = null;
+            visitedOrder = [];
+            distances = {}; // Clear Dijkstra specific state
+            previousNodes = {};
+            finalizedNodes = new Set();
+            pathNodes = [];
+            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydPathMatrix = [];
+            currentK = -1; currentI = -1; currentJ = -1;
+
+            const minCost = {}; // Stores the minimum cost to connect a node to the MST
+            const parent = {}; // Stores the parent node in the MST
+            const priorityQueue = new MinPriorityQueue();
+
+            // Initialize
+            nodesArray.forEach(node => {
+                minCost[node] = Infinity;
+                parent[node] = null;
+            });
+
+            minCost[startNode] = 0;
+            priorityQueue.enqueue(startNode, 0);
+
+            drawGraph();
+            await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+            let edgesInMSTCount = 0;
+            while (!priorityQueue.isEmpty() && edgesInMSTCount < numNodes - 1) {
+                const { value: node, priority: currentMinCost } = priorityQueue.dequeue();
+
+                if (visitedNodes.has(node)) {
+                    continue; // Already added to MST
+                }
+
+                currentNode = node;
+                visitedNodes.add(node); // Add node to MST
+
+                if (parent[node] !== null) {
+                    // Add the edge to MST
+                    const edgeKey1 = `${parent[node]}-${node}`;
+                    const edgeKey2 = `${node}-${parent[node]}`;
+                    mstEdges.add(edgeKey1); // Add both directions for drawing consistency
+                    mstEdges.add(edgeKey2);
+                    mstTotalWeight += currentMinCost;
+                    edgesInMSTCount++;
+                }
+
+                drawGraph(); // Update node and edge colors
+                await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+                // Explore neighbors
+                for (const edge of graph[node]) {
+                    const neighbor = edge.node;
+                    const weight = edge.weight;
+
+                    // For Prim's, consider undirected edges
+                    // Check if the neighbor is not yet in the MST and if this path is cheaper
+                    if (!visitedNodes.has(neighbor) && weight < minCost[neighbor]) {
+                        minCost[neighbor] = weight;
+                        parent[neighbor] = node;
+                        priorityQueue.enqueue(neighbor, weight);
+                        drawGraph(); // Update graph to show potential new cheapest edge
+                        await new Promise(resolve => setTimeout(resolve, animationSpeed));
+                    }
+                }
+            }
+
+            currentNode = null;
+            drawGraph(); // Final draw
             isAlgorithmRunning = false;
             startButton.disabled = false;
             resetButton.disabled = false;
@@ -1236,7 +1336,11 @@ function Prim(graph):
             targetNodeSelect.disabled = false;
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
-            showModal("Minimum Spanning Tree", "Minimum Spanning Tree visualization coming soon!");
+
+            let resultMessage = `Minimum Spanning Tree (Prim's) Complete!\nTotal Weight: ${mstTotalWeight}`;
+            showModal("MST Complete!", resultMessage);
+            console.log("MST Edges:", Array.from(mstEdges));
+            console.log("MST Total Weight:", mstTotalWeight);
         }
 
 
@@ -1257,6 +1361,10 @@ function Prim(graph):
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
             distanceMatrixTableDiv.innerHTML = ''; // Clear matrix table
+            // Reset MST specific state
+            mstEdges = new Set();
+            mstTotalWeight = 0;
+
 
             if (currentMode === 'graph') {
                 drawGraph();
@@ -1307,7 +1415,7 @@ function Prim(graph):
                             floydWarshall();
                             break;
                         case 'mst':
-                            minimumSpanningTree();
+                            primMST(selectedStartNode); // Start Prim's from selected node
                             break;
                     }
                 } else if (currentMode === 'grid') {
