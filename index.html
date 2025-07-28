@@ -438,7 +438,17 @@ function BFS(graph, startNode):
             <h2 class="text-2xl font-semibold text-gray-700 mb-4" id="gridAlgorithmTitle">Grid Visualization</h2>
             <canvas id="gridCanvas"></canvas>
             <div class="grid-controls">
-                <button id="generateGridButton" class="btn btn-primary">Generate Grid</button>
+                <div class="input-group" id="gridInteractionModeGroup">
+                    <label for="gridInteractionMode">Interaction Mode:</label>
+                    <select id="gridInteractionMode" class="form-select">
+                        <option value="none">None</option>
+                        <option value="set-start">Set Start</option>
+                        <option value="set-end">Set End</option>
+                        <option value="add-wall">Add Wall</option>
+                        <option value="remove-wall">Remove Wall</option>
+                    </select>
+                </div>
+                <button id="runGridAlgorithmButton" class="btn btn-primary">Run Grid Algorithm</button>
                 <button id="clearGridButton" class="btn btn-secondary">Clear Grid</button>
                 <div class="slider-container">
                     <label for="gridSpeedSlider" class="text-sm font-medium">Speed:</label>
@@ -471,7 +481,7 @@ function BFS(graph, startNode):
         // Global state variables
         let currentMode = 'graph'; // 'graph' or 'grid'
         let currentAlgorithm = 'bfs'; // 'bfs', 'dfs', 'dijkstra', 'floyd-warshall', 'mst'
-        let animationSpeed = 200; // Milliseconds
+        let animationSpeed = 200; // Milliseconds (used for both graph and grid animations)
 
         // DOM Elements
         const modeSelect = document.getElementById('modeSelect');
@@ -490,9 +500,9 @@ function BFS(graph, startNode):
         // Graph visualization elements (specific to graph mode)
         const canvas = document.getElementById('visualizationCanvas');
         const ctx = canvas.getContext('2d');
-        const startButton = document.getElementById('startButton');
-        const resetButton = document.getElementById('resetButton');
-        const speedSlider = document.getElementById('speedSlider');
+        const startButton = document.getElementById('startButton'); // For graph algorithms
+        const resetButton = document.getElementById('resetButton'); // For graph algorithms
+        const speedSlider = document.getElementById('speedSlider'); // For graph algorithms
         const speedValueSpan = document.getElementById('speedValue');
         const startNodeSelect = document.getElementById('startNodeSelect');
         const targetNodeSelect = document.getElementById('targetNodeSelect');
@@ -517,10 +527,12 @@ function BFS(graph, startNode):
         // Grid Visualization Elements
         const gridCanvas = document.getElementById('gridCanvas');
         const gridCtx = gridCanvas.getContext('2d');
-        const generateGridButton = document.getElementById('generateGridButton');
-        const clearGridButton = document.getElementById('clearGridButton');
+        const runGridAlgorithmButton = document.getElementById('runGridAlgorithmButton'); // For grid algorithms
+        const clearGridButton = document.getElementById('clearGridButton'); // For grid algorithms
         const gridSpeedSlider = document.getElementById('gridSpeedSlider');
         const gridSpeedValueSpan = document.getElementById('gridSpeedValue');
+        const gridInteractionModeSelect = document.getElementById('gridInteractionMode');
+
 
         // Graph definition (nodes and edges) - NOW DYNAMICALLY MODIFIABLE
         let graph = {
@@ -576,18 +588,24 @@ function BFS(graph, startNode):
         const GRID_ROWS = 20;
         const GRID_COLS = 30;
         let cellSize = 0; // Will be calculated dynamically
-        let grid = []; // 2D array representing the grid
-        let startGridNode = null;
-        let endGridNode = null;
+        let grid = []; // 2D array representing the grid (0: empty, 1: wall, 2: start, 3: end, 4: visited, 5: path)
+        let startGridNode = null; // {row, col}
+        let endGridNode = null; // {row, col}
         let gridWalls = new Set(); // Stores "row-col" strings for wall positions
         let gridVisited = new Set(); // For grid pathfinding visualization
         let gridPath = []; // For grid path visualization
+        let isDrawingWalls = false; // Flag for continuous wall drawing
+        let currentGridAlgorithm = 'bfs-grid'; // Default grid algorithm
 
         // Graph Interaction State
         let currentGraphInteractionMode = 'select'; // 'select', 'add-node', 'remove-node', 'add-edge', 'remove-edge'
         let draggedNode = null; // Node currently being dragged
         let startEdgeNode = null; // First node clicked when adding an edge
         let mouseX = 0, mouseY = 0; // Current mouse position for drawing temporary edge
+
+        // Grid Interaction State
+        let currentGridInteractionMode = 'none'; // 'none', 'set-start', 'set-end', 'add-wall', 'remove-wall'
+
 
         // --- Custom Modal Function ---
         function showModal(title, message) {
@@ -680,6 +698,11 @@ function BFS(graph, startNode):
                 document.querySelector('#gridContainer .grid-controls').classList.remove('hidden');
                 document.querySelector('#graphContainer .controls').classList.add('hidden'); // Ensure graph controls are hidden
                 matrixContainer.classList.add('hidden'); // Hide matrix for grid mode
+
+                // Disable grid algorithm button if in an interaction mode other than 'none'
+                const gridAlgorithmControlsDisabled = currentGridInteractionMode !== 'none';
+                runGridAlgorithmButton.disabled = gridAlgorithmControlsDisabled;
+                gridSpeedSlider.disabled = gridAlgorithmControlsDisabled;
             }
 
             // Update algorithm title and info box based on mode
@@ -805,15 +828,34 @@ function Prim(graph, startNode):
                         break;
                 }
             } else if (currentMode === 'grid') {
-                gridAlgorithmTitle.textContent = 'Grid Algorithms';
+                gridAlgorithmTitle.textContent = 'Grid Pathfinding (BFS)';
                 gridAlgorithmInfoBox.innerHTML = `
-                    <h3>Grid Algorithms (Coming Soon)</h3>
+                    <h3>Grid Pathfinding - Breadth-First Search (BFS)</h3>
                     <p>
-                        This section will feature algorithms that operate on a grid, such as pathfinding algorithms (e.g., A*, Dijkstra on a grid) and maze generation algorithms.
+                        This algorithm finds the shortest path between a start and an end point on a grid, avoiding walls.
                     </p>
                     <p>
-                        You will be able to define start/end points, add walls, and watch the algorithms find paths or generate mazes.
+                        Click 'Set Start' to place the starting point, 'Set End' for the destination, and 'Add Wall' to draw obstacles. Then click 'Run Grid Algorithm' to see BFS in action.
                     </p>
+                    <h3>Pseudocode:</h3>
+                    <pre>
+function BFS_Grid(grid, startNode, endNode):
+    create queue Q
+    add startNode to Q
+    visited = set containing startNode
+    parentMap = map to reconstruct path
+
+    while Q is not empty:
+        current = Q.dequeue()
+        if current is endNode:
+            reconstruct path and return
+
+        for each neighbor of current:
+            if neighbor is valid (within bounds, not wall, not visited):
+                add neighbor to visited
+                set parentMap[neighbor] = current
+                add neighbor to Q
+                    </pre>
                 `;
             }
             resetVisualization(); // Reset visualization when mode or algorithm changes
@@ -1017,7 +1059,7 @@ function Prim(graph, startNode):
 
         // --- Grid Visualization Functions ---
         function initializeGrid() {
-            grid = Array(GRID_ROWS).fill(0).map(() => Array(GRID_COLS).fill(0)); // 0 for empty, 1 for wall, etc.
+            grid = Array(GRID_ROWS).fill(0).map(() => Array(GRID_COLS).fill(0)); // 0 for empty
             gridWalls = new Set();
             gridVisited = new Set();
             gridPath = [];
@@ -1042,19 +1084,20 @@ function Prim(graph, startNode):
                     gridCtx.strokeStyle = '#cbd5e1'; // Light gray for grid lines
                     gridCtx.strokeRect(x, y, cellSize, cellSize);
 
-                    // Fill cells based on state
+                    // Determine fill color based on cell state
+                    let fillColor = '#ffffff'; // Default empty
                     if (gridWalls.has(cellKey)) {
-                        gridCtx.fillStyle = '#4a5568'; // Dark gray for walls
+                        fillColor = '#4a5568'; // Dark gray for walls
                     } else if (gridPath.includes(cellKey)) {
-                        gridCtx.fillStyle = '#6366f1'; // Indigo for path
+                        fillColor = '#6366f1'; // Indigo for path
                     } else if (gridVisited.has(cellKey)) {
-                        gridCtx.fillStyle = '#93c5fd'; // Light blue for visited
-                    } else {
-                        gridCtx.fillStyle = '#ffffff'; // White for empty
+                        fillColor = '#93c5fd'; // Light blue for visited
                     }
+
+                    gridCtx.fillStyle = fillColor;
                     gridCtx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2); // Fill with slight padding
 
-                    // Draw start/end nodes
+                    // Draw start/end nodes on top
                     if (startGridNode && startGridNode.row === r && startGridNode.col === c) {
                         gridCtx.fillStyle = '#10b981'; // Green for start
                         gridCtx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
@@ -1075,6 +1118,63 @@ function Prim(graph, startNode):
                     }
                 }
             }
+        }
+
+        // --- Grid Customization Functions ---
+
+        // Helper to get grid cell from mouse coordinates
+        function getGridCell(x, y) {
+            const row = Math.floor(y / cellSize);
+            const col = Math.floor(x / cellSize);
+            if (row >= 0 && row < GRID_ROWS && col >= 0 && col < GRID_COLS) {
+                return { row, col, key: `${row}-${col}` };
+            }
+            return null;
+        }
+
+        // Set start, end, or wall node on the grid
+        function setGridNodeState(cell, type) {
+            if (!cell) return;
+            console.log(`Attempting to set ${type} at ${cell.key}`);
+            console.log(`Before: startGridNode=${startGridNode?.key}, endGridNode=${endGridNode?.key}`);
+
+            // Clear existing start/end if setting new ones
+            if (type === 'set-start') {
+                if (startGridNode) {
+                    console.log(`Clearing old start node from walls: ${startGridNode.key}`);
+                    gridWalls.delete(startGridNode.key);
+                }
+                startGridNode = cell;
+                gridWalls.delete(cell.key); // A start node cannot be a wall
+                if (endGridNode && endGridNode.key === cell.key) {
+                    console.log(`End node was at new start location, clearing end: ${endGridNode.key}`);
+                    endGridNode = null; // If setting start on end
+                }
+                showModal("Start Node Set", `Start node placed at (${cell.row}, ${cell.col}).`);
+            } else if (type === 'set-end') {
+                if (endGridNode) {
+                    console.log(`Clearing old end node from walls: ${endGridNode.key}`);
+                    gridWalls.delete(endGridNode.key);
+                }
+                endGridNode = cell;
+                gridWalls.delete(cell.key); // An end node cannot be a wall
+                if (startGridNode && startGridNode.key === cell.key) {
+                    console.log(`Start node was at new end location, clearing start: ${startGridNode.key}`);
+                    startGridNode = null; // If setting end on start
+                }
+                showModal("End Node Set", `End node placed at (${cell.row}, ${cell.col}).`);
+            } else if (type === 'add-wall') {
+                if ((startGridNode && startGridNode.key === cell.key) || (endGridNode && endGridNode.key === cell.key)) {
+                    showModal("Error", "Cannot place a wall on start or end node.");
+                    console.log("Attempted to place wall on start/end.");
+                    return;
+                }
+                gridWalls.add(cell.key);
+            } else if (type === 'remove-wall') {
+                gridWalls.delete(cell.key);
+            }
+            console.log(`After: startGridNode=${startGridNode?.key}, endGridNode=${endGridNode?.key}`);
+            drawGrid();
         }
 
         // --- Graph Customization Functions ---
@@ -1182,7 +1282,7 @@ function Prim(graph, startNode):
 
         // --- Algorithm Implementations ---
 
-        // Breadth-First Search Algorithm with Visualization
+        // Breadth-First Search Algorithm with Visualization (for Graph)
         async function bfs(startNode) {
             if (isAlgorithmRunning) return;
             if (!graph[startNode]) { showModal("Error", "Start node does not exist."); return; }
@@ -1257,7 +1357,7 @@ function Prim(graph, startNode):
             showModal("BFS Complete!", `Traversal Order: ${visitedOrder.join(' -> ')}`);
         }
 
-        // Depth-First Search Algorithm with Visualization (Iterative)
+        // Depth-First Search Algorithm with Visualization (Iterative) (for Graph)
         async function dfs(startNode) {
             if (isAlgorithmRunning) return;
             if (!graph[startNode]) { showModal("Error", "Start node does not exist."); return; }
@@ -1334,7 +1434,7 @@ function Prim(graph, startNode):
             showModal("DFS Complete!", `Traversal Order: ${visitedOrder.join(' -> ')}`);
         }
 
-        // Dijkstra's Algorithm with Visualization
+        // Dijkstra's Algorithm with Visualization (for Graph)
         async function dijkstra(startNode, targetNode) {
             if (isAlgorithmRunning) return;
             if (!graph[startNode] || !graph[targetNode]) { showModal("Error", "Start or target node does not exist."); return; }
@@ -1439,7 +1539,7 @@ function Prim(graph, startNode):
             console.log("Dijkstra's Previous Nodes:", previousNodes);
         }
 
-        // Floyd-Warshall Algorithm with Visualization
+        // Floyd-Warshall Algorithm with Visualization (for Graph)
         async function floydWarshall() {
             if (isAlgorithmRunning) return;
             if (numNodes === 0) { showModal("Error", "Graph is empty. Add nodes to run Floyd-Warshall."); return; }
@@ -1504,7 +1604,7 @@ function Prim(graph, startNode):
                             if (floydDistMatrix[i][j] > floydDistMatrix[i][k] + floydDistMatrix[k][j]) {
                                 floydDistMatrix[i][j] = floydDistMatrix[i][k] + floydDistMatrix[k][j];
                                 floydPathMatrix[i][j] = floydPathMatrix[k][j];
-                                drawMatrix(floloydDistMatrix, -1, -1, i, j);
+                                drawMatrix(floydDistMatrix, -1, -1, i, j);
                                 await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
                             }
                         }
@@ -1530,7 +1630,7 @@ function Prim(graph, startNode):
             showModal("Floyd-Warshall Algorithm Complete!", "All-pairs shortest paths calculated. Check the Distance Matrix below.");
         }
 
-        // Minimum Spanning Tree (Prim's Algorithm) with Visualization
+        // Minimum Spanning Tree (Prim's Algorithm) with Visualization (for Graph)
         async function primMST(startNode) {
             if (isAlgorithmRunning) return;
             if (!graph[startNode]) { showModal("Error", "Start node does not exist."); return; }
@@ -1634,9 +1734,92 @@ function Prim(graph, startNode):
             console.log("MST Total Weight:", mstTotalWeight);
         }
 
-        // --- Placeholder for Grid Algorithm ---
-        async function runGridAlgorithm() {
-            showModal("Grid Algorithm", "Grid-based algorithms are coming soon!");
+        // --- Grid Pathfinding (BFS on Grid) ---
+        async function gridBFS() {
+            if (isAlgorithmRunning) return;
+            if (!startGridNode || !endGridNode) {
+                showModal("Error", "Please set both start and end nodes on the grid.");
+                return;
+            }
+            if (gridWalls.has(startGridNode.key) || gridWalls.has(endGridNode.key)) {
+                showModal("Error", "Start or end node cannot be a wall.");
+                return;
+            }
+
+            isAlgorithmRunning = true;
+            runGridAlgorithmButton.disabled = true;
+            clearGridButton.disabled = true;
+            gridSpeedSlider.disabled = true;
+            gridInteractionModeSelect.disabled = true; // Disable interaction mode during algorithm
+
+            gridVisited = new Set();
+            gridPath = [];
+            const queue = [];
+            const parentMap = new Map(); // Stores {childKey: parentKey} for path reconstruction
+
+            queue.push(startGridNode.key);
+            gridVisited.add(startGridNode.key);
+            drawGrid();
+            await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+            const directions = [
+                { dr: -1, dc: 0 }, // Up
+                { dr: 1, dc: 0 },  // Down
+                { dr: 0, dc: -1 }, // Left
+                { dr: 0, dc: 1 }   // Right
+            ];
+
+            let pathFound = false;
+            while (queue.length > 0) {
+                const currentKey = queue.shift();
+                const [r, c] = currentKey.split('-').map(Number);
+
+                // If end node reached
+                if (currentKey === endGridNode.key) {
+                    pathFound = true;
+                    // Reconstruct path
+                    let pathCurrent = endGridNode.key;
+                    while (pathCurrent && pathCurrent !== startGridNode.key) {
+                        gridPath.unshift(pathCurrent);
+                        pathCurrent = parentMap.get(pathCurrent);
+                    }
+                    if (startGridNode) gridPath.unshift(startGridNode.key); // Add start node to path
+                    drawGrid();
+                    break;
+                }
+
+                // Explore neighbors
+                for (const dir of directions) {
+                    const newR = r + dir.dr;
+                    const newC = c + dir.dc;
+                    const neighborKey = `${newR}-${newC}`;
+
+                    // Check bounds, walls, and visited status
+                    if (newR >= 0 && newR < GRID_ROWS && newC >= 0 && newC < GRID_COLS &&
+                        !gridWalls.has(neighborKey) && !gridVisited.has(neighborKey)) {
+                        
+                        gridVisited.add(neighborKey);
+                        parentMap.set(neighborKey, currentKey);
+                        queue.push(neighborKey);
+                        drawGrid(); // Update visualization
+                        await new Promise(resolve => setTimeout(resolve, animationSpeed));
+                    }
+                }
+            }
+
+            isAlgorithmRunning = false;
+            runGridAlgorithmButton.disabled = false;
+            clearGridButton.disabled = false;
+            gridSpeedSlider.disabled = false;
+            gridInteractionModeSelect.disabled = false; // Re-enable interaction mode
+
+            if (pathFound) {
+                showModal("Path Found!", `Shortest path found! Length: ${gridPath.length - 1} steps.`);
+            } else {
+                showModal("No Path Found", "Could not find a path from start to end.");
+            }
+            console.log("Grid BFS Visited:", Array.from(gridVisited));
+            console.log("Grid BFS Path:", gridPath);
         }
 
         // Function to reset the current visualization state
@@ -1657,24 +1840,23 @@ function Prim(graph, startNode):
             distanceMatrixTableDiv.innerHTML = '';
             mstEdges = new Set();
             mstTotalWeight = 0;
-            // Reset interaction states
+            // Reset graph interaction states
             draggedNode = null;
             startEdgeNode = null;
             mouseX = 0;
             mouseY = 0;
 
 
-            // Reset grid-specific states
-            gridWalls = new Set();
+            // Reset grid-specific states (only algorithm-related visuals)
             gridVisited = new Set();
             gridPath = [];
-            startGridNode = null;
-            endGridNode = null;
+            isDrawingWalls = false; // Ensure wall drawing flag is reset
 
             if (currentMode === 'graph') {
                 drawGraph();
             } else if (currentMode === 'grid') {
-                initializeGrid(); // Re-initialize and draw empty grid
+                // For grid, only clear visited/path, retain start/end/walls
+                drawGrid(); // Redraw grid with existing start/end/walls
             }
             // Re-enable all controls after reset
             startButton.disabled = false;
@@ -1685,159 +1867,16 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
             graphInteractionModeSelect.disabled = false;
+            runGridAlgorithmButton.disabled = false;
+            clearGridButton.disabled = false;
+            gridSpeedSlider.disabled = false;
+            gridInteractionModeSelect.disabled = false;
             customModal.style.display = 'none'; // Hide modal on reset
         }
 
         // --- Event Listeners ---
 
-        modeSelect.addEventListener('change', (event) => {
-            currentMode = event.target.value;
-            updateUI();
-            resetVisualization(); // Reset when mode changes
-        });
-
-        algorithmSelect.addEventListener('change', (event) => {
-            currentAlgorithm = event.target.value;
-            updateUI();
-            resetVisualization(); // Reset when algorithm changes
-        });
-
-        graphInteractionModeSelect.addEventListener('change', (event) => {
-            currentGraphInteractionMode = event.target.value;
-            updateUI(); // Update UI to show/hide edge weight input
-            // Reset any ongoing interaction states when mode changes
-            draggedNode = null;
-            startEdgeNode = null;
-            drawGraph(); // Redraw to clear any temporary lines
-        });
-
-        startButton.addEventListener('click', () => {
-            if (!isAlgorithmRunning) {
-                if (currentMode === 'graph') {
-                    const selectedStartNode = startNodeSelect.value;
-                    const selectedTargetNode = targetNodeSelect.value;
-                    switch (currentAlgorithm) {
-                        case 'bfs':
-                            bfs(selectedStartNode);
-                            break;
-                        case 'dfs':
-                            dfs(selectedStartNode);
-                            break;
-                        case 'dijkstra':
-                            dijkstra(selectedStartNode, selectedTargetNode);
-                            break;
-                        case 'floyd-warshall':
-                            floydWarshall();
-                            break;
-                        case 'mst':
-                            primMST(selectedStartNode);
-                            break;
-                    }
-                } else if (currentMode === 'grid') {
-                    runGridAlgorithm(); // Placeholder for grid algorithm start
-                }
-            }
-        });
-
-        resetButton.addEventListener('click', () => {
-            resetVisualization();
-        });
-
-        speedSlider.addEventListener('input', (event) => {
-            animationSpeed = parseInt(event.target.value);
-            speedValueSpan.textContent = `${animationSpeed}ms`;
-        });
-
-        // Grid specific event listeners
-        generateGridButton.addEventListener('click', () => {
-            initializeGrid();
-            showModal("Grid Generated", "An empty grid has been generated. You can now implement grid algorithms.");
-        });
-
-        clearGridButton.addEventListener('click', () => {
-            initializeGrid(); // Re-initialize to clear any drawings
-            showModal("Grid Cleared", "The grid has been cleared.");
-        });
-
-        gridSpeedSlider.addEventListener('input', (event) => {
-            animationSpeed = parseInt(event.target.value); // Use same animationSpeed for now
-            gridSpeedValueSpan.textContent = `${animationSpeed}ms`;
-        });
-
-        // --- Canvas Mouse Event Listeners for Graph Customization ---
-        canvas.addEventListener('mousedown', (e) => {
-            if (isAlgorithmRunning || currentMode !== 'graph') return;
-
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const clickedNode = getNodeAt(x, y);
-
-            if (currentGraphInteractionMode === 'select') {
-                if (clickedNode) {
-                    draggedNode = clickedNode;
-                }
-            } else if (currentGraphInteractionMode === 'add-node') {
-                if (!clickedNode) { // Only add if not clicking on an existing node
-                    addNode(x, y);
-                }
-            } else if (currentGraphInteractionMode === 'remove-node') {
-                if (clickedNode) {
-                    removeNode(clickedNode);
-                } else {
-                    showModal("Error", "Click on a node to remove it.");
-                }
-            } else if (currentGraphInteractionMode === 'add-edge') {
-                if (clickedNode) {
-                    if (!startEdgeNode) {
-                        startEdgeNode = clickedNode;
-                    } else if (startEdgeNode !== clickedNode) {
-                        const weight = newEdgeWeightInput.value;
-                        addEdge(startEdgeNode, clickedNode, weight);
-                        startEdgeNode = null; // Reset for next edge
-                    }
-                } else {
-                    startEdgeNode = null; // Reset if clicked outside a node
-                }
-                drawGraph(); // Redraw to clear temporary line if interaction resets
-            } else if (currentGraphInteractionMode === 'remove-edge') {
-                if (clickedNode) {
-                    if (!startEdgeNode) {
-                        startEdgeNode = clickedNode;
-                    } else if (startEdgeNode !== clickedNode) {
-                        removeEdge(startEdgeNode, clickedNode);
-                        startEdgeNode = null; // Reset for next edge
-                    }
-                } else {
-                    startEdgeNode = null; // Reset if clicked outside a node
-                }
-                drawGraph(); // Redraw to clear temporary line if interaction resets
-            }
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (isAlgorithmRunning || currentMode !== 'graph') return;
-
-            const rect = canvas.getBoundingClientRect();
-            mouseX = e.clientX - rect.left;
-            mouseY = e.clientY - rect.top;
-
-            if (currentGraphInteractionMode === 'select' && draggedNode) {
-                nodePositions[draggedNode].x = mouseX;
-                nodePositions[draggedNode].y = mouseY;
-                drawGraph();
-            } else if (currentGraphInteractionMode === 'add-edge' && startEdgeNode) {
-                drawGraph(); // Redraw to update temporary line
-            }
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            if (isAlgorithmRunning || currentMode !== 'graph') return;
-            draggedNode = null; // Stop dragging
-            // startEdgeNode is handled in mousedown for add-edge/remove-edge
-        });
-
-        // Initialize on load
+        // All event listeners are now attached within window.onload
         window.onload = function() {
             // Set canvas dimensions based on its container, but cap max width
             const containerWidth = canvas.parentElement.clientWidth;
@@ -1851,21 +1890,228 @@ function Prim(graph, startNode):
             updateUI(); // Initial UI setup
             drawGraph(); // Initial graph draw
             initializeGrid(); // Initial grid draw
-        };
 
-        // Handle window resize to make canvas responsive
-        window.addEventListener('resize', () => {
-            const containerWidth = canvas.parentElement.clientWidth;
-            canvas.width = Math.min(containerWidth * 0.9, 900);
-            gridCanvas.width = Math.min(containerWidth * 0.9, 900);
+            modeSelect.addEventListener('change', (event) => {
+                currentMode = event.target.value;
+                updateUI();
+                resetVisualization(); // Reset when mode changes
+            });
 
-            if (currentMode === 'graph') {
-                drawGraph(); // Redraw graph to fit new canvas size
-            } else if (currentMode === 'grid') {
-                cellSize = Math.min(gridCanvas.width / GRID_COLS, gridCanvas.height / GRID_ROWS); // Recalculate cellSize
-                drawGrid(); // Redraw grid to fit new canvas size
-            }
-        });
+            algorithmSelect.addEventListener('change', (event) => {
+                currentAlgorithm = event.target.value;
+                updateUI();
+                resetVisualization(); // Reset when algorithm changes
+            });
+
+            graphInteractionModeSelect.addEventListener('change', (event) => {
+                currentGraphInteractionMode = event.target.value;
+                updateUI(); // Update UI to show/hide edge weight input
+                // Reset any ongoing interaction states when mode changes
+                draggedNode = null;
+                startEdgeNode = null;
+                drawGraph(); // Redraw to clear any temporary lines
+            });
+
+            // Use a single "Start" button for graph algorithms
+            startButton.addEventListener('click', () => {
+                if (!isAlgorithmRunning) {
+                    if (currentMode === 'graph') {
+                        const selectedStartNode = startNodeSelect.value;
+                        const selectedTargetNode = targetNodeSelect.value;
+                        switch (currentAlgorithm) {
+                            case 'bfs':
+                                bfs(selectedStartNode);
+                                break;
+                            case 'dfs':
+                                dfs(selectedStartNode);
+                                break;
+                            case 'dijkstra':
+                                dijkstra(selectedStartNode, selectedTargetNode);
+                                break;
+                            case 'floyd-warshall':
+                                floydWarshall();
+                                break;
+                            case 'mst':
+                                primMST(selectedStartNode);
+                                break;
+                        }
+                    }
+                }
+            });
+
+            // New "Run Grid Algorithm" button for grid mode
+            runGridAlgorithmButton.addEventListener('click', () => {
+                if (!isAlgorithmRunning && currentMode === 'grid') {
+                    // For now, only BFS is implemented for grid
+                    gridBFS(); 
+                }
+            });
+
+
+            resetButton.addEventListener('click', () => {
+                resetVisualization();
+            });
+
+            speedSlider.addEventListener('input', (event) => {
+                animationSpeed = parseInt(event.target.value);
+                speedValueSpan.textContent = `${animationSpeed}ms`;
+            });
+
+            // Grid specific event listeners
+            clearGridButton.addEventListener('click', () => {
+                initializeGrid(); // Re-initialize to clear any drawings
+                showModal("Grid Cleared", "The grid has been cleared.");
+            });
+
+            gridSpeedSlider.addEventListener('input', (event) => {
+                animationSpeed = parseInt(event.target.value); // Use same animationSpeed for now
+                gridSpeedValueSpan.textContent = `${animationSpeed}ms`;
+            });
+
+            gridInteractionModeSelect.addEventListener('change', (event) => {
+                currentGridInteractionMode = event.target.value;
+                updateUI(); // Update button disabled states
+            });
+
+
+            // --- Canvas Mouse Event Listeners for Graph Customization ---
+            canvas.addEventListener('mousedown', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'graph') return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const clickedNode = getNodeAt(x, y);
+
+                if (currentGraphInteractionMode === 'select') {
+                    if (clickedNode) {
+                        draggedNode = clickedNode;
+                    }
+                } else if (currentGraphInteractionMode === 'add-node') {
+                    if (!clickedNode) { // Only add if not clicking on an existing node
+                        addNode(x, y);
+                    }
+                } else if (currentGraphInteractionMode === 'remove-node') {
+                    if (clickedNode) {
+                        removeNode(clickedNode);
+                    } else {
+                        showModal("Error", "Click on a node to remove it.");
+                    }
+                } else if (currentGraphInteractionMode === 'add-edge') {
+                    if (clickedNode) {
+                        if (!startEdgeNode) {
+                            startEdgeNode = clickedNode;
+                        } else if (startEdgeNode !== clickedNode) {
+                            const weight = newEdgeWeightInput.value;
+                            addEdge(startEdgeNode, clickedNode, weight);
+                            startEdgeNode = null; // Reset for next edge
+                        }
+                    } else {
+                        startEdgeNode = null; // Reset if clicked outside a node
+                    }
+                    drawGraph(); // Redraw to clear temporary line if interaction resets
+                } else if (currentGraphInteractionMode === 'remove-edge') {
+                    if (clickedNode) {
+                        if (!startEdgeNode) {
+                            startEdgeNode = clickedNode;
+                        } else if (startEdgeNode !== clickedNode) {
+                            removeEdge(startEdgeNode, clickedNode);
+                            startEdgeNode = null; // Reset for next edge
+                        }
+                    } else {
+                        startEdgeNode = null; // Reset if clicked outside a node
+                    }
+                    drawGraph(); // Redraw to clear temporary line if interaction resets
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'graph') return;
+
+                const rect = canvas.getBoundingClientRect();
+                mouseX = e.clientX - rect.left;
+                mouseY = e.clientY - rect.top;
+
+                if (currentGraphInteractionMode === 'select' && draggedNode) {
+                    nodePositions[draggedNode].x = mouseX;
+                    nodePositions[draggedNode].y = mouseY;
+                    drawGraph();
+                } else if (currentGraphInteractionMode === 'add-edge' && startEdgeNode) {
+                    drawGraph(); // Redraw to update temporary line
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                if (isAlgorithmRunning || currentMode !== 'graph') return;
+                draggedNode = null; // Stop dragging
+                // startEdgeNode is handled in mousedown for add-edge/remove-edge
+            });
+
+            // --- Canvas Mouse Event Listeners for Grid Customization ---
+            gridCanvas.addEventListener('mousedown', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'grid') return;
+
+                const rect = gridCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const clickedCell = getGridCell(x, y);
+
+                if (!clickedCell) return;
+
+                if (currentGridInteractionMode === 'set-start') {
+                    setGridNodeState(clickedCell, 'set-start');
+                } else if (currentGridInteractionMode === 'set-end') {
+                    setGridNodeState(clickedCell, 'set-end');
+                } else if (currentGridInteractionMode === 'add-wall') {
+                    isDrawingWalls = true;
+                    setGridNodeState(clickedCell, 'add-wall');
+                } else if (currentGridInteractionMode === 'remove-wall') {
+                    isDrawingWalls = true;
+                    setGridNodeState(clickedCell, 'remove-wall');
+                }
+            });
+
+            gridCanvas.addEventListener('mousemove', (e) => {
+                if (isAlgorithmRunning || currentMode !== 'grid' || !isDrawingWalls) return;
+
+                const rect = gridCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const currentCell = getGridCell(x, y);
+
+                if (!currentCell) return;
+
+                if (currentGridInteractionMode === 'add-wall') {
+                    setGridNodeState(currentCell, 'add-wall');
+                } else if (currentGridInteractionMode === 'remove-wall') {
+                    setGridNodeState(currentCell, 'remove-wall');
+                }
+            });
+
+            gridCanvas.addEventListener('mouseup', () => {
+                if (currentMode !== 'grid') return;
+                isDrawingWalls = false; // Stop drawing walls
+            });
+
+            gridCanvas.addEventListener('mouseleave', () => {
+                if (currentMode !== 'grid') return;
+                isDrawingWalls = false; // Stop drawing walls if mouse leaves canvas
+            });
+
+            // Handle window resize to make canvas responsive
+            window.addEventListener('resize', () => {
+                const containerWidth = canvas.parentElement.clientWidth;
+                canvas.width = Math.min(containerWidth * 0.9, 900);
+                gridCanvas.width = Math.min(containerWidth * 0.9, 900);
+
+                if (currentMode === 'graph') {
+                    drawGraph(); // Redraw graph to fit new canvas size
+                } else if (currentMode === 'grid') {
+                    cellSize = Math.min(gridCanvas.width / GRID_COLS, gridCanvas.height / GRID_ROWS); // Recalculate cellSize
+                    drawGrid(); // Redraw grid to fit new canvas size
+                }
+            });
+        }; // End of window.onload
     </script>
 </body>
 </html>
