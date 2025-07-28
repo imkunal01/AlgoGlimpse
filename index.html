@@ -280,6 +280,56 @@
         .modal-content button:hover {
             background-color: #4338ca;
         }
+
+        /* Matrix Table Styling */
+        .matrix-container {
+            width: 100%;
+            max-width: 900px;
+            margin-top: 1.5rem;
+            overflow-x: auto;
+            background-color: #f8fafc;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+        }
+        .matrix-container h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #1e293b;
+            text-align: center;
+        }
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+        }
+        .matrix-table th, .matrix-table td {
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem;
+            text-align: center;
+            min-width: 40px; /* Ensure cells are wide enough */
+        }
+        .matrix-table th {
+            background-color: #e2e8f0;
+            color: #334155;
+            font-weight: 600;
+        }
+        .matrix-table td {
+            background-color: #ffffff;
+            color: #334155;
+        }
+        .matrix-table td.highlight-cell {
+            background-color: #f59e0b; /* Amber for current cell */
+            font-weight: bold;
+            color: #ffffff;
+        }
+        .matrix-table td.updated-cell {
+            background-color: #10b981; /* Green for updated cell */
+            font-weight: bold;
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -313,7 +363,7 @@
             <canvas id="visualizationCanvas"></canvas>
 
             <div class="controls">
-                <div class="input-group">
+                <div class="input-group" id="startNodeGroup">
                     <label for="startNodeSelect">Start Node:</label>
                     <select id="startNodeSelect" class="form-select"></select>
                 </div>
@@ -355,6 +405,12 @@ function BFS(graph, startNode):
                 add neighbor to V
                 add neighbor to Q
                 </pre>
+            </div>
+
+            <div id="matrixContainer" class="matrix-container hidden">
+                <h4>Distance Matrix</h4>
+                <div id="distanceMatrixTable"></div>
+                <!-- Path Matrix can be added here later -->
             </div>
         </div>
 
@@ -401,14 +457,18 @@ function BFS(graph, startNode):
         const speedValueSpan = document.getElementById('speedValue');
         const startNodeSelect = document.getElementById('startNodeSelect');
         const targetNodeSelect = document.getElementById('targetNodeSelect');
+        const startNodeGroup = document.getElementById('startNodeGroup');
         const targetNodeGroup = document.getElementById('targetNodeGroup');
-
 
         // Custom Modal Elements
         const customModal = document.getElementById('customModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalMessage = document.getElementById('modalMessage');
         const modalCloseButton = document.getElementById('modalCloseButton');
+
+        // Matrix Visualization Elements
+        const matrixContainer = document.getElementById('matrixContainer');
+        const distanceMatrixTableDiv = document.getElementById('distanceMatrixTable');
 
         // Graph definition (nodes and edges) - NOW WEIGHTED
         const graph = {
@@ -433,6 +493,8 @@ function BFS(graph, startNode):
         };
 
         const nodeRadius = 25;
+        const nodesArray = Object.keys(graph); // Array of node names for matrix indexing
+        const numNodes = nodesArray.length;
 
         // State variables for graph algorithm visualization
         let visitedNodes = new Set();
@@ -447,6 +509,11 @@ function BFS(graph, startNode):
         let previousNodes = {}; // Stores predecessor for path reconstruction
         let finalizedNodes = new Set(); // Nodes whose shortest path is found
         let pathNodes = []; // Nodes in the final shortest path
+
+        // Floyd-Warshall specific state
+        let floydDistMatrix = []; // Current distance matrix for visualization
+        let floydPathMatrix = []; // Path reconstruction matrix (optional for visualization)
+        let currentK = -1, currentI = -1, currentJ = -1; // Indices for highlighting in matrix
 
         // --- Custom Modal Function ---
         function showModal(title, message) {
@@ -497,9 +564,9 @@ function BFS(graph, startNode):
 
                 // Show/hide start/target node selects based on algorithm
                 if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'dijkstra') {
-                    startNodeSelect.parentElement.classList.remove('hidden');
+                    startNodeGroup.style.display = 'flex';
                 } else {
-                    startNodeSelect.parentElement.classList.add('hidden');
+                    startNodeGroup.style.display = 'none';
                 }
 
                 if (currentAlgorithm === 'dijkstra') {
@@ -508,10 +575,17 @@ function BFS(graph, startNode):
                     targetNodeGroup.style.display = 'none'; // Hide for others
                 }
 
+                if (currentAlgorithm === 'floyd-warshall') {
+                    matrixContainer.classList.remove('hidden');
+                } else {
+                    matrixContainer.classList.add('hidden');
+                }
+
             } else if (currentMode === 'grid') {
                 graphContainer.classList.add('hidden');
                 gridContainer.classList.remove('hidden');
                 document.querySelector('.controls').classList.add('hidden');
+                matrixContainer.classList.add('hidden'); // Hide matrix for grid mode
             }
 
             // Update algorithm title and info box
@@ -603,7 +677,7 @@ function Dijkstra(graph, startNode):
                     `;
                     break;
                 case 'floyd-warshall':
-                    algorithmTitle.textContent = 'Floyd-Warshall Algorithm (Coming Soon)';
+                    algorithmTitle.textContent = 'Floyd-Warshall Algorithm';
                     algorithmInfoBox.innerHTML = `
                         <h3>Floyd-Warshall Algorithm</h3>
                         <p>
@@ -660,7 +734,7 @@ function Prim(graph):
         function populateNodeSelects() {
             startNodeSelect.innerHTML = ''; // Clear existing options
             targetNodeSelect.innerHTML = '';
-            Object.keys(graph).forEach(node => {
+            nodesArray.forEach(node => {
                 const optionStart = document.createElement('option');
                 optionStart.value = node;
                 optionStart.textContent = node;
@@ -672,9 +746,9 @@ function Prim(graph):
                 targetNodeSelect.appendChild(optionTarget);
             });
             // Set default selected nodes
-            if (Object.keys(graph).length > 0) {
-                startNodeSelect.value = Object.keys(graph)[0];
-                targetNodeSelect.value = Object.keys(graph)[Object.keys(graph).length - 1]; // Default target to last node
+            if (nodesArray.length > 0) {
+                startNodeSelect.value = nodesArray[0];
+                targetNodeSelect.value = nodesArray[nodesArray.length - 1]; // Default target to last node
             }
         }
 
@@ -703,6 +777,10 @@ function Prim(graph):
                             if (currentAlgorithm === 'dijkstra' && pathNodes.includes(node) && pathNodes.includes(neighbor) &&
                                 (pathNodes.indexOf(node) === pathNodes.indexOf(neighbor) - 1 || pathNodes.indexOf(neighbor) === pathNodes.indexOf(node) - 1)) {
                                 ctx.strokeStyle = '#059669'; // Green for shortest path edges
+                            } else if (currentAlgorithm === 'floyd-warshall') {
+                                // No specific edge highlighting during Floyd-Warshall iteration on graph,
+                                // but we can highlight edges related to current K node if desired.
+                                // For now, keep default.
                             }
 
                             ctx.beginPath();
@@ -727,7 +805,8 @@ function Prim(graph):
             }
 
             // Draw nodes and labels
-            for (const node in nodePositions) {
+            for (let i = 0; i < nodesArray.length; i++) {
+                const node = nodesArray[i];
                 const pos = nodePositions[node];
 
                 // Node fill color
@@ -748,7 +827,10 @@ function Prim(graph):
                     if (currentNode === node) {
                         fillColor = '#ef4444'; // Red for current processing (all algos)
                     }
-                    // Nodes in priority queue for Dijkstra could also have a distinct color if needed
+                } else if (currentAlgorithm === 'floyd-warshall') {
+                    if (i === currentK) { // Highlight current 'k' node for Floyd-Warshall
+                        fillColor = '#ef4444'; // Red
+                    }
                 } else { // For BFS/DFS, current node is red
                     if (currentNode === node) {
                         fillColor = '#ef4444'; // Red for current processing
@@ -779,6 +861,33 @@ function Prim(graph):
             }
         }
 
+        // --- Matrix Visualization Functions (for Floyd-Warshall) ---
+        function drawMatrix(matrix, highlightI = -1, highlightJ = -1, updatedI = -1, updatedJ = -1) {
+            let tableHTML = '<table class="matrix-table"><thead><tr><th></th>';
+            nodesArray.forEach(node => {
+                tableHTML += `<th>${node}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            for (let i = 0; i < numNodes; i++) {
+                tableHTML += `<tr><th>${nodesArray[i]}</th>`;
+                for (let j = 0; j < numNodes; j++) {
+                    let cellValue = matrix[i][j] === Infinity ? '∞' : matrix[i][j];
+                    let cellClass = '';
+                    if (i === highlightI && j === highlightJ) {
+                        cellClass = 'highlight-cell'; // Currently being considered
+                    }
+                    if (i === updatedI && j === updatedJ) {
+                        cellClass = 'updated-cell'; // Value just updated
+                    }
+                    tableHTML += `<td class="${cellClass}">${cellValue}</td>`;
+                }
+                tableHTML += '</tr>';
+            }
+            tableHTML += '</tbody></table>';
+            distanceMatrixTableDiv.innerHTML = tableHTML;
+        }
+
         // --- Algorithm Implementations ---
 
         // Breadth-First Search Algorithm with Visualization
@@ -790,15 +899,18 @@ function Prim(graph):
             startNodeSelect.disabled = true;
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
-            targetNodeSelect.disabled = true; // Disable target node for BFS
+            targetNodeSelect.disabled = true;
 
             visitedNodes = new Set();
             queueNodes = [];
             stackNodes = [];
             visitedOrder = [];
             currentNode = null;
-            finalizedNodes = new Set(); // Clear Dijkstra specific state
-            pathNodes = []; // Clear Dijkstra specific state
+            finalizedNodes = new Set();
+            pathNodes = [];
+            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydPathMatrix = [];
+            currentK = -1; currentI = -1; currentJ = -1;
 
             const queue = [];
 
@@ -819,7 +931,6 @@ function Prim(graph):
                 drawGraph();
                 await new Promise(resolve => setTimeout(resolve, animationSpeed));
 
-                // Get neighbors from the weighted graph structure
                 for (const edge of graph[node]) {
                     const neighbor = edge.node;
                     if (!visitedNodes.has(neighbor)) {
@@ -856,15 +967,18 @@ function Prim(graph):
             startNodeSelect.disabled = true;
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
-            targetNodeSelect.disabled = true; // Disable target node for DFS
+            targetNodeSelect.disabled = true;
 
             visitedNodes = new Set();
             queueNodes = [];
             stackNodes = [];
             visitedOrder = [];
             currentNode = null;
-            finalizedNodes = new Set(); // Clear Dijkstra specific state
-            pathNodes = []; // Clear Dijkstra specific state
+            finalizedNodes = new Set();
+            pathNodes = [];
+            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydPathMatrix = [];
+            currentK = -1; currentI = -1; currentJ = -1;
 
             const stack = [];
 
@@ -886,8 +1000,6 @@ function Prim(graph):
                     drawGraph();
                     await new Promise(resolve => setTimeout(resolve, animationSpeed));
 
-                    // Get neighbors from the weighted graph structure
-                    // Sort and reverse for consistent stack behavior (alphabetical exploration)
                     const neighbors = graph[node].map(edge => edge.node).sort().reverse();
 
                     for (const neighbor of neighbors) {
@@ -939,6 +1051,10 @@ function Prim(graph):
             stackNodes = [];
             currentNode = null;
             visitedOrder = [];
+            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydPathMatrix = [];
+            currentK = -1; currentI = -1; currentJ = -1;
+
 
             const priorityQueue = new MinPriorityQueue();
 
@@ -957,46 +1073,41 @@ function Prim(graph):
                 const { value: node, priority: currentDistance } = priorityQueue.dequeue();
                 currentNode = node;
 
-                // If we've already found a shorter path, skip
                 if (currentDistance > distances[node]) {
                     continue;
                 }
 
-                // Mark node as finalized
                 finalizedNodes.add(node);
-                drawGraph(); // Update color for finalized node
+                drawGraph();
                 await new Promise(resolve => setTimeout(resolve, animationSpeed));
 
-                // If target node is reached, reconstruct path and finish
                 if (node === targetNode) {
                     let pathCurrent = targetNode;
                     while (pathCurrent) {
                         pathNodes.unshift(pathCurrent);
                         pathCurrent = previousNodes[pathCurrent];
                     }
-                    drawGraph(); // Draw final path
-                    break; // Exit loop
+                    drawGraph();
+                    break;
                 }
 
-                // Explore neighbors
                 for (const edge of graph[node]) {
                     const neighbor = edge.node;
                     const weight = edge.weight;
                     const newDistance = distances[node] + weight;
 
-                    // If a shorter path to neighbor is found
                     if (newDistance < distances[neighbor]) {
                         distances[neighbor] = newDistance;
                         previousNodes[neighbor] = node;
                         priorityQueue.enqueue(neighbor, newDistance);
-                        drawGraph(); // Update neighbor's distance and potentially color
+                        drawGraph();
                         await new Promise(resolve => setTimeout(resolve, animationSpeed));
                     }
                 }
             }
 
             currentNode = null;
-            drawGraph(); // Final draw
+            drawGraph();
             isAlgorithmRunning = false;
             startButton.disabled = false;
             resetButton.disabled = false;
@@ -1017,9 +1128,8 @@ function Prim(graph):
             console.log("Dijkstra's Previous Nodes:", previousNodes);
         }
 
-        // Placeholder for Floyd-Warshall
+        // Floyd-Warshall Algorithm with Visualization
         async function floydWarshall() {
-            console.log("Floyd-Warshall algorithm started.");
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
@@ -1029,8 +1139,67 @@ function Prim(graph):
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
 
-            await new Promise(resolve => setTimeout(resolve, animationSpeed * 5));
+            // Reset general visualization state
+            visitedNodes = new Set();
+            queueNodes = [];
+            stackNodes = [];
+            currentNode = null;
+            visitedOrder = [];
+            distances = {}; // Clear Dijkstra specific state
+            previousNodes = {};
+            finalizedNodes = new Set();
+            pathNodes = [];
 
+            // Initialize distance matrix
+            floydDistMatrix = Array(numNodes).fill(0).map(() => Array(numNodes).fill(Infinity));
+            floydPathMatrix = Array(numNodes).fill(0).map(() => Array(numNodes).fill(null));
+
+            for (let i = 0; i < numNodes; i++) {
+                floydDistMatrix[i][i] = 0; // Distance to self is 0
+            }
+
+            // Populate initial distances from graph
+            for (const nodeName in graph) {
+                const i = nodesArray.indexOf(nodeName);
+                for (const edge of graph[nodeName]) {
+                    const j = nodesArray.indexOf(edge.node);
+                    floydDistMatrix[i][j] = edge.weight;
+                    floydPathMatrix[i][j] = i; // Direct path from i to j
+                }
+            }
+
+            drawMatrix(floydDistMatrix); // Initial draw of the matrix
+            drawGraph(); // Draw graph with no highlights
+            await new Promise(resolve => setTimeout(resolve, animationSpeed * 2)); // Initial pause
+
+            for (let k = 0; k < numNodes; k++) {
+                currentK = k; // Highlight current intermediate node on graph
+                drawGraph(); // Update graph to highlight K
+                await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
+
+                for (let i = 0; i < numNodes; i++) {
+                    for (let j = 0; j < numNodes; j++) {
+                        currentI = i; // Highlight current i, j in matrix
+                        currentJ = j;
+                        drawMatrix(floydDistMatrix, currentI, currentJ); // Highlight current cell
+                        await new Promise(resolve => setTimeout(resolve, animationSpeed));
+
+                        if (floydDistMatrix[i][k] !== Infinity && floydDistMatrix[k][j] !== Infinity) {
+                            if (floydDistMatrix[i][j] > floydDistMatrix[i][k] + floydDistMatrix[k][j]) {
+                                floydDistMatrix[i][j] = floydDistMatrix[i][k] + floydDistMatrix[k][j];
+                                floydPathMatrix[i][j] = floydPathMatrix[k][j]; // Update path
+                                drawMatrix(floydDistMatrix, -1, -1, i, j); // Highlight updated cell
+                                await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Algorithm complete
+            currentK = -1; currentI = -1; currentJ = -1; // Clear highlights
+            drawGraph();
+            drawMatrix(floydDistMatrix); // Final draw of the matrix
             isAlgorithmRunning = false;
             startButton.disabled = false;
             resetButton.disabled = false;
@@ -1039,7 +1208,10 @@ function Prim(graph):
             targetNodeSelect.disabled = false;
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
-            showModal("Floyd-Warshall Algorithm", "Floyd-Warshall algorithm visualization coming soon!");
+
+            console.log("Floyd-Warshall Final Distances:", floydDistMatrix);
+            console.log("Floyd-Warshall Path Matrix:", floydPathMatrix);
+            showModal("Floyd-Warshall Algorithm Complete!", "All-pairs shortest paths calculated. Check the Distance Matrix below.");
         }
 
         // Placeholder for Minimum Spanning Tree
@@ -1080,6 +1252,11 @@ function Prim(graph):
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
+            // Reset Floyd-Warshall specific state
+            floydDistMatrix = [];
+            floydPathMatrix = [];
+            currentK = -1; currentI = -1; currentJ = -1;
+            distanceMatrixTableDiv.innerHTML = ''; // Clear matrix table
 
             if (currentMode === 'graph') {
                 drawGraph();
