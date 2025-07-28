@@ -479,6 +479,7 @@
                     </div>
                     <button id="showFloydPathButton" class="btn btn-primary">Show Path</button>
                 </div>
+                <button id="explainAlgoButton" class="btn btn-primary">✨ Get Detailed Explanation</button>
             </div>
 
             <div class="info-box" id="graphAlgorithmInfoBox">
@@ -506,6 +507,17 @@ function BFS(graph, startNode):
                 add neighbor to V
                 add neighbor to Q
                 </pre>
+            </div>
+
+            <!-- New div for LLM generated explanation -->
+            <div id="llmExplanationBox" class="info-box mt-4 hidden">
+                <h3>Detailed Explanation (Powered by Gemini)</h3>
+                <p id="llmExplanationContent">
+                    <!-- Content will be loaded here by Gemini API -->
+                </p>
+                <div id="llmLoadingIndicator" class="hidden text-center text-gray-500 mt-2">
+                    Generating explanation...
+                </div>
             </div>
 
             <div id="matrixContainer" class="matrix-container hidden">
@@ -545,6 +557,25 @@ function BFS(graph, startNode):
                 <p>
                     You will be able to define start/end points, add walls, and watch the algorithms find paths or generate mazes.
                 </p>
+                <h3>Pseudocode:</h3>
+                <pre>
+function BFS_Grid(grid, startNode, endNode):
+    create queue Q
+    add startNode to Q
+    visited = set containing startNode
+    parentMap = map to reconstruct path
+
+    while Q is not empty:
+        current = Q.dequeue()
+        if current is endNode:
+            reconstruct path and return
+
+        for each neighbor of current:
+            if neighbor is valid (within bounds, not wall, not visited):
+                add neighbor to visited
+                set parentMap[neighbor] = current
+                add neighbor to Q
+                    </pre>
             </div>
         </div>
 
@@ -575,7 +606,7 @@ function BFS(graph, startNode):
                     <label for="compareStartNode">Start Node:</label>
                     <select id="compareStartNode" class="form-select"></select>
                 </div>
-                 <div class="input-group" id="compareTargetNodeGroup" style="display: none;">
+                   <div class="input-group" id="compareTargetNodeGroup" style="display: none;">
                     <label for="compareTargetNode">Target Node:</label>
                     <select id="compareTargetNode" class="form-select"></select>
                 </div>
@@ -669,6 +700,23 @@ function BFS(graph, startNode):
         const showFloydPathButton = document.getElementById('showFloydPathButton');
         let floydWarshallResult = { finalMatrix: [], pathMatrix: [] }; // Store the result after FW runs
 
+        // MST specific state
+        let mstEdges = new Set(); // Edges that are part of the MST
+        let mstTotalWeight = 0;
+
+        // Grid specific state
+        const GRID_ROWS = 20;
+        const GRID_COLS = 30;
+        let cellSize = 0; // Will be calculated dynamically
+        let grid = []; // 2D array representing the grid (0: empty, 1: wall, 2: start, 3: end, 4: visited, 5: path)
+        let startGridNode = null; // {row, col}
+        let endGridNode = null; // {row, col}
+        let gridWalls = new Set(); // Stores "row-col" strings for wall positions
+        let gridVisited = new Set(); // For grid pathfinding visualization
+        let gridPath = []; // For grid path visualization
+        let isDrawingWalls = false; // Flag for continuous wall drawing
+        let currentGridAlgorithm = 'bfs-grid'; // Default grid algorithm
+
         // Grid Visualization Elements
         const gridCanvas = document.getElementById('gridCanvas');
         const gridCtx = gridCanvas.getContext('2d');
@@ -697,6 +745,12 @@ function BFS(graph, startNode):
         const compareResultsDiv = document.getElementById('compareResults');
         const compareResult1Div = document.getElementById('compareResult1');
         const compareResult2Div = document.getElementById('compareResult2');
+
+        // LLM Explanation Elements
+        const explainAlgoButton = document.getElementById('explainAlgoButton');
+        const llmExplanationBox = document.getElementById('llmExplanationBox');
+        const llmExplanationContent = document.getElementById('llmExplanationContent');
+        const llmLoadingIndicator = document.getElementById('llmLoadingIndicator');
 
 
         // Graph definition (nodes and edges) - NOW DYNAMICALLY MODIFIABLE
@@ -749,23 +803,6 @@ function BFS(graph, startNode):
         let floydPathMatrix = []; // Path reconstruction matrix (optional for visualization)
         let currentK = -1, currentI = -1, currentJ = -1; // Indices for highlighting in matrix
         let currentFloydPath = []; // For visualizing a specific path after FW
-
-        // MST specific state
-        let mstEdges = new Set(); // Edges that are part of the MST
-        let mstTotalWeight = 0;
-
-        // Grid specific state
-        const GRID_ROWS = 20;
-        const GRID_COLS = 30;
-        let cellSize = 0; // Will be calculated dynamically
-        let grid = []; // 2D array representing the grid (0: empty, 1: wall, 2: start, 3: end, 4: visited, 5: path)
-        let startGridNode = null; // {row, col}
-        let endGridNode = null; // {row, col}
-        let gridWalls = new Set(); // Stores "row-col" strings for wall positions
-        let gridVisited = new Set(); // For grid pathfinding visualization
-        let gridPath = []; // For grid path visualization
-        let isDrawingWalls = false; // Flag for continuous wall drawing
-        let currentGridAlgorithm = 'bfs-grid'; // Default grid algorithm
 
         // Graph Interaction State
         let currentGraphInteractionMode = 'select'; // 'select', 'add-node', 'remove-node', 'add-edge', 'remove-edge'
@@ -873,7 +910,10 @@ function BFS(graph, startNode):
                 targetNodeSelect.disabled = algorithmControlsDisabled;
                 algorithmSelect.disabled = algorithmControlsDisabled;
                 showFloydPathButton.disabled = algorithmControlsDisabled || floydWarshallResult.finalMatrix.length === 0;
+                explainAlgoButton.disabled = algorithmControlsDisabled; // Disable LLM button during interaction
 
+                llmExplanationBox.classList.add('hidden'); // Hide LLM explanation when algorithm changes or mode changes
+                llmExplanationContent.innerHTML = ''; // Clear content
             } else if (currentMode === 'grid') {
                 gridContainer.classList.remove('hidden');
                 
@@ -932,7 +972,7 @@ function BFS(graph, startNode):
             if neighbor is not in V:
                 add neighbor to V
                 add neighbor to Q
-                            </pre>
+                                </pre>
                         `;
                         break;
                     case 'dfs':
@@ -957,7 +997,7 @@ function DFS(graph, startNode):
             if neighbor is not in V:
                 add neighbor to V
                 push neighbor to S
-                            </pre>
+                                </pre>
                         `;
                         break;
                     case 'dijkstra':
@@ -981,7 +1021,7 @@ function Dijkstra(graph, startNode):
             if newDistance < distances[neighbor]:
                 distances[neighbor] = newDistance
                 update neighbor in priorityQueue
-                            </pre>
+                                </pre>
                         `;
                         break;
                     case 'floyd-warshall':
@@ -999,7 +1039,7 @@ function FloydWarshall(graph):
         for i from 0 to n-1:
             for j from 0 to n-1:
                 dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
-                            </pre>
+                                </pre>
                         `;
                         break;
                     case 'mst':
@@ -1025,7 +1065,7 @@ function Prim(graph, startNode):
                 min_cost[neighbor] = weight(currentNode, neighbor)
                 parent[neighbor] = currentNode
                 update neighbor in priorityQueue
-                            </pre>
+                                </pre>
                         `;
                         break;
                 }
@@ -2215,12 +2255,64 @@ function BFS_Grid(grid, startNode, endNode):
             
             // Update Floyd-Warshall path selection button state
             showFloydPathButton.disabled = true; // Disable until FW runs again
+
+            llmExplanationBox.classList.add('hidden'); // Hide LLM explanation on reset
+            llmExplanationContent.innerHTML = ''; // Clear content
+            llmLoadingIndicator.classList.add('hidden'); // Hide loading indicator
+        }
+
+        // --- Gemini API Integration ---
+        async function explainAlgorithmWithGemini(algorithmName) {
+            llmExplanationBox.classList.remove('hidden'); // Show the explanation box
+            llmExplanationContent.innerHTML = ''; // Clear previous content
+            llmLoadingIndicator.classList.remove('hidden'); // Show loading indicator
+            explainAlgoButton.disabled = true; // Disable button during API call
+
+            const prompt = `Explain the ${algorithmName} algorithm in detail, including its time complexity, space complexity, common use cases, and a simple analogy to help understand it. Format the explanation using Markdown, with clear headings and bullet points.`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // Leave this as-is; Canvas will automatically provide it.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    // Render markdown content
+                    llmExplanationContent.innerHTML = marked.parse(text); // Using marked.js for markdown rendering
+                } else {
+                    llmExplanationContent.textContent = "Failed to get explanation. Please try again.";
+                    console.error("Gemini API response structure unexpected:", result);
+                }
+            } catch (error) {
+                llmExplanationContent.textContent = `Error: ${error.message}. Could not fetch explanation.`;
+                console.error("Error calling Gemini API:", error);
+            } finally {
+                llmLoadingIndicator.classList.add('hidden'); // Hide loading indicator
+                explainAlgoButton.disabled = false; // Re-enable button
+            }
         }
 
         // --- Event Listeners ---
 
         // All event listeners are now attached within window.onload
         window.onload = function() {
+            // Add marked.js for Markdown rendering
+            const markedScript = document.createElement('script');
+            markedScript.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+            document.head.appendChild(markedScript);
+
             // Set canvas dimensions based on its container, but cap max width
             const containerWidth = canvas.parentElement.clientWidth;
             canvas.width = Math.min(containerWidth * 0.9, 900); // Main Graph canvas
@@ -2310,9 +2402,9 @@ function BFS_Grid(grid, startNode, endNode):
                 if (path.length > 0) {
                     currentFloydPath = path; // Store the path to be drawn
                     drawGraph(ctx, graph, nodePositions, { path: currentFloydPath });
-                    showModal("Path Found!", `Path from ${pathStart} to ${pathEnd}: ${path.join(' -> ')} (Distance: ${floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)]})`);
+                    showModal("Path Found!", `Path from ${pathStart} to ${pathEnd}: ${floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)] === Infinity ? 'No path' : path.join(' -> ')} (Distance: ${floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)] === Infinity ? 'Infinity' : floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)]})`);
                 } else {
-                    currentFloydPath = []; // Clear path if not found
+                    currentFloloydPath = []; // Clear path if not found
                     drawGraph(ctx, graph, nodePositions, { path: currentFloydPath }); // Redraw to clear any old path
                     showModal("No Path", `No path found from ${pathStart} to ${pathEnd}.`);
                 }
@@ -2322,6 +2414,10 @@ function BFS_Grid(grid, startNode, endNode):
             // New "Run Grid Algorithm" button for grid mode
             runGridAlgorithmButton.addEventListener('click', () => {
                 if (!isAlgorithmRunning && currentMode === 'grid') {
+                    if (!startGridNode || !endGridNode) {
+                        showModal("Error", "Please set both start (S) and end (E) nodes on the grid first.");
+                        return;
+                    }
                     gridBFS(gridCtx, gridWalls, startGridNode, endGridNode, cellSize, animationSpeed, {
                         onComplete: (res) => {
                             if (res.pathFound) {
@@ -2331,6 +2427,15 @@ function BFS_Grid(grid, startNode, endNode):
                             }
                         }
                     });
+                }
+            });
+
+            // Event listener for the new Gemini explanation button
+            explainAlgoButton.addEventListener('click', () => {
+                if (currentMode === 'graph') {
+                    explainAlgorithmWithGemini(getAlgorithmName(currentAlgorithm));
+                } else {
+                    showModal("Info", "Detailed explanation is currently available only for Graph algorithms.");
                 }
             });
 
@@ -2411,7 +2516,7 @@ function BFS_Grid(grid, startNode, endNode):
                     } else {
                         startEdgeNode = null; // Reset if clicked outside a node
                     }
-                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw to clear temporary line if interaction resets
+                    drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath }); // Redraw to clear any temporary lines
                 } else if (currentGraphInteractionMode === 'remove-edge') {
                     if (clickedNode) {
                         if (!startEdgeNode) {
