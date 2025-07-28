@@ -218,18 +218,24 @@
             color: #334155;
             font-size: 0.875rem;
         }
-        .grid-placeholder {
+        /* Grid-specific styles */
+        #gridCanvas {
+            background-color: #ffffff; /* White background for grid */
+            border-radius: 0.75rem;
+            border: 1px solid #cbd5e1;
+            display: block;
             width: 100%;
             max-width: 900px;
             height: 500px;
-            background-color: #e2e8f0;
-            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .grid-controls {
             display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
             justify-content: center;
-            align-items: center;
-            font-size: 1.5rem;
-            color: #64748b;
-            border: 1px dashed #94a3b8;
+            margin-bottom: 1.5rem;
+            width: 100%;
         }
 
         /* Custom Modal Styling (for alerts) */
@@ -339,7 +345,7 @@
             <label for="modeSelect">Mode:</label>
             <select id="modeSelect">
                 <option value="graph">Graph</option>
-                <option value="grid">Grid (Coming Soon)</option>
+                <option value="grid">Grid</option>
             </select>
         </div>
         <div class="nav-section">
@@ -359,7 +365,7 @@
 
     <div class="main-content">
         <div id="graphContainer" class="container">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-4" id="algorithmTitle">Breadth-First Search (BFS)</h2>
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4" id="graphAlgorithmTitle">Breadth-First Search (BFS)</h2>
             <canvas id="visualizationCanvas"></canvas>
 
             <div class="controls">
@@ -380,7 +386,7 @@
                 </div>
             </div>
 
-            <div class="info-box" id="algorithmInfoBox">
+            <div class="info-box" id="graphAlgorithmInfoBox">
                 <h3>Breadth-First Search (BFS) Algorithm</h3>
                 <p>
                     Breadth-First Search (BFS) is an algorithm for traversing or searching tree or graph data structures. It starts at the tree root (or some arbitrary node of a graph, sometimes referred to as a 'search key'), and explores all of the neighbor nodes at the present depth before moving on to the nodes at the next depth level.
@@ -415,9 +421,25 @@ function BFS(graph, startNode):
         </div>
 
         <div id="gridContainer" class="container hidden">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Grid Visualization (Coming Soon)</h2>
-            <div class="grid-placeholder">
-                <p>Grid-based algorithms will be visualized here.</p>
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4" id="gridAlgorithmTitle">Grid Visualization</h2>
+            <canvas id="gridCanvas"></canvas>
+            <div class="grid-controls">
+                <button id="generateGridButton" class="btn btn-primary">Generate Grid</button>
+                <button id="clearGridButton" class="btn btn-secondary">Clear Grid</button>
+                <div class="slider-container">
+                    <label for="gridSpeedSlider" class="text-sm font-medium">Speed:</label>
+                    <input type="range" id="gridSpeedSlider" min="10" max="1000" value="200">
+                    <span id="gridSpeedValue" class="text-sm">200ms</span>
+                </div>
+            </div>
+            <div class="info-box" id="gridAlgorithmInfoBox">
+                <h3>Grid Algorithms (Coming Soon)</h3>
+                <p>
+                    This section will feature algorithms that operate on a grid, such as pathfinding algorithms (e.g., A*, Dijkstra on a grid) and maze generation algorithms.
+                </p>
+                <p>
+                    You will be able to define start/end points, add walls, and watch the algorithms find paths or generate mazes.
+                </p>
             </div>
         </div>
     </div>
@@ -445,8 +467,11 @@ function BFS(graph, startNode):
         const graphContainer = document.getElementById('graphContainer');
         const gridContainer = document.getElementById('gridContainer');
 
-        const algorithmTitle = document.getElementById('algorithmTitle');
-        const algorithmInfoBox = document.getElementById('algorithmInfoBox');
+        const graphAlgorithmTitle = document.getElementById('graphAlgorithmTitle');
+        const graphAlgorithmInfoBox = document.getElementById('graphAlgorithmInfoBox');
+        const gridAlgorithmTitle = document.getElementById('gridAlgorithmTitle');
+        const gridAlgorithmInfoBox = document.getElementById('gridAlgorithmInfoBox');
+
 
         // Graph visualization elements (specific to graph mode)
         const canvas = document.getElementById('visualizationCanvas');
@@ -470,10 +495,15 @@ function BFS(graph, startNode):
         const matrixContainer = document.getElementById('matrixContainer');
         const distanceMatrixTableDiv = document.getElementById('distanceMatrixTable');
 
+        // Grid Visualization Elements
+        const gridCanvas = document.getElementById('gridCanvas');
+        const gridCtx = gridCanvas.getContext('2d');
+        const generateGridButton = document.getElementById('generateGridButton');
+        const clearGridButton = document.getElementById('clearGridButton');
+        const gridSpeedSlider = document.getElementById('gridSpeedSlider');
+        const gridSpeedValueSpan = document.getElementById('gridSpeedValue');
+
         // Graph definition (nodes and edges) - NOW WEIGHTED
-        // Note: For MST, the graph should ideally be undirected.
-        // For simplicity in this visualization, we'll treat existing edges as bidirectional
-        // for MST purposes, even if defined as one-way in the adjacency list.
         const graph = {
             'A': [{ node: 'B', weight: 4 }, { node: 'C', weight: 2 }],
             'B': [{ node: 'A', weight: 4 }, { node: 'D', weight: 5 }, { node: 'E', weight: 10 }],
@@ -522,6 +552,17 @@ function BFS(graph, startNode):
         let mstEdges = new Set(); // Edges that are part of the MST
         let mstTotalWeight = 0;
 
+        // Grid specific state
+        const GRID_ROWS = 20;
+        const GRID_COLS = 30;
+        let cellSize = 0; // Will be calculated dynamically
+        let grid = []; // 2D array representing the grid
+        let startGridNode = null;
+        let endGridNode = null;
+        let gridWalls = new Set(); // Stores "row-col" strings for wall positions
+        let gridVisited = new Set(); // For grid pathfinding visualization
+        let gridPath = []; // For grid path visualization
+
         // --- Custom Modal Function ---
         function showModal(title, message) {
             modalTitle.textContent = title;
@@ -534,8 +575,6 @@ function BFS(graph, startNode):
         });
 
         // --- Priority Queue Implementation (Min-Heap) ---
-        // This is a basic implementation for demonstration.
-        // For a more robust solution, consider a library or a more optimized heap.
         class MinPriorityQueue {
             constructor() {
                 this.values = [];
@@ -567,9 +606,9 @@ function BFS(graph, startNode):
             if (currentMode === 'graph') {
                 graphContainer.classList.remove('hidden');
                 gridContainer.classList.add('hidden');
-                document.querySelector('.controls').classList.remove('hidden');
-
-                // Show/hide start/target node selects based on algorithm
+                
+                // Show/hide graph-specific controls
+                document.querySelector('#graphContainer .controls').classList.remove('hidden');
                 if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'dijkstra' || currentAlgorithm === 'mst') {
                     startNodeGroup.style.display = 'flex';
                 } else {
@@ -577,9 +616,9 @@ function BFS(graph, startNode):
                 }
 
                 if (currentAlgorithm === 'dijkstra') {
-                    targetNodeGroup.style.display = 'flex'; // Show target node for Dijkstra
+                    targetNodeGroup.style.display = 'flex';
                 } else {
-                    targetNodeGroup.style.display = 'none'; // Hide for others
+                    targetNodeGroup.style.display = 'none';
                 }
 
                 if (currentAlgorithm === 'floyd-warshall') {
@@ -591,24 +630,24 @@ function BFS(graph, startNode):
             } else if (currentMode === 'grid') {
                 graphContainer.classList.add('hidden');
                 gridContainer.classList.remove('hidden');
-                document.querySelector('.controls').classList.add('hidden');
+                
+                // Show/hide grid-specific controls
+                document.querySelector('#gridContainer .grid-controls').classList.remove('hidden');
+                document.querySelector('#graphContainer .controls').classList.add('hidden'); // Ensure graph controls are hidden
                 matrixContainer.classList.add('hidden'); // Hide matrix for grid mode
             }
 
-            // Update algorithm title and info box
-            switch (currentAlgorithm) {
-                case 'bfs':
-                    algorithmTitle.textContent = 'Breadth-First Search (BFS)';
-                    algorithmInfoBox.innerHTML = `
-                        <h3>Breadth-First Search (BFS) Algorithm</h3>
-                        <p>
-                            BFS is an algorithm for traversing or searching tree or graph data structures. It explores all of the neighbor nodes at the present depth before moving on to the nodes at the next depth level.
-                        </p>
-                        <p>
-                            BFS is commonly used to find the shortest path in an unweighted graph.
-                        </p>
-                        <h3>Pseudocode:</h3>
-                        <pre>
+            // Update algorithm title and info box based on mode
+            if (currentMode === 'graph') {
+                switch (currentAlgorithm) {
+                    case 'bfs':
+                        graphAlgorithmTitle.textContent = 'Breadth-First Search (BFS)';
+                        graphAlgorithmInfoBox.innerHTML = `
+                            <h3>Breadth-First Search (BFS) Algorithm</h3>
+                            <p>BFS is an algorithm for traversing or searching tree or graph data structures. It explores all of the neighbor nodes at the present depth before moving on to the nodes at the next depth level.</p>
+                            <p>BFS is commonly used to find the shortest path in an unweighted graph.</p>
+                            <h3>Pseudocode:</h3>
+                            <pre>
 function BFS(graph, startNode):
     create a queue Q
     create a set of visited nodes V
@@ -623,21 +662,17 @@ function BFS(graph, startNode):
             if neighbor is not in V:
                 add neighbor to V
                 add neighbor to Q
-                        </pre>
-                    `;
-                    break;
-                case 'dfs':
-                    algorithmTitle.textContent = 'Depth-First Search (DFS)';
-                    algorithmInfoBox.innerHTML = `
-                        <h3>Depth-First Search (DFS) Algorithm</h3>
-                        <p>
-                            DFS is an algorithm for traversing or searching tree or graph data structures. It explores as far as possible along each branch before backtracking.
-                        </p>
-                        <p>
-                            DFS can be used to find connected components, cycles, and topological sorting.
-                        </p>
-                        <h3>Pseudocode:</h3>
-                        <pre>
+                            </pre>
+                        `;
+                        break;
+                    case 'dfs':
+                        graphAlgorithmTitle.textContent = 'Depth-First Search (DFS)';
+                        graphAlgorithmInfoBox.innerHTML = `
+                            <h3>Depth-First Search (DFS) Algorithm</h3>
+                            <p>DFS is an algorithm for traversing or searching tree or graph data structures. It explores as far as possible along each branch before backtracking.</p>
+                            <p>DFS can be used to find connected components, cycles, and topological sorting.</p>
+                            <h3>Pseudocode:</h3>
+                            <pre>
 function DFS(graph, startNode):
     create a stack S
     create a set of visited nodes V
@@ -652,21 +687,17 @@ function DFS(graph, startNode):
             if neighbor is not in V:
                 add neighbor to V
                 push neighbor to S
-                        </pre>
-                    `;
-                    break;
-                case 'dijkstra':
-                    algorithmTitle.textContent = 'Dijkstra\'s Algorithm';
-                    algorithmInfoBox.innerHTML = `
-                        <h3>Dijkstra's Algorithm</h3>
-                        <p>
-                            Dijkstra's algorithm finds the shortest paths between nodes in a graph, which may have non-negative edge weights.
-                        </p>
-                        <p>
-                            It is widely used in network routing protocols.
-                        </p>
-                        <h3>Pseudocode:</h3>
-                        <pre>
+                            </pre>
+                        `;
+                        break;
+                    case 'dijkstra':
+                        graphAlgorithmTitle.textContent = 'Dijkstra\'s Algorithm';
+                        graphAlgorithmInfoBox.innerHTML = `
+                            <h3>Dijkstra's Algorithm</h3>
+                            <p>Dijkstra's algorithm finds the shortest paths between nodes in a graph, which may have non-negative edge weights.</p>
+                            <p>It is widely used in network routing protocols.</p>
+                            <h3>Pseudocode:</h3>
+                            <pre>
 function Dijkstra(graph, startNode):
     distances = map of nodes to infinity
     distances[startNode] = 0
@@ -680,21 +711,17 @@ function Dijkstra(graph, startNode):
             if newDistance < distances[neighbor]:
                 distances[neighbor] = newDistance
                 update neighbor in priorityQueue
-                        </pre>
-                    `;
-                    break;
-                case 'floyd-warshall':
-                    algorithmTitle.textContent = 'Floyd-Warshall Algorithm';
-                    algorithmInfoBox.innerHTML = `
-                        <h3>Floyd-Warshall Algorithm</h3>
-                        <p>
-                            The Floyd-Warshall algorithm is an algorithm for finding shortest paths in a weighted graph with positive or negative edge weights (but no negative cycles).
-                        </p>
-                        <p>
-                            It computes shortest paths between all pairs of nodes.
-                        </p>
-                        <h3>Pseudocode:</h3>
-                        <pre>
+                            </pre>
+                        `;
+                        break;
+                    case 'floyd-warshall':
+                        graphAlgorithmTitle.textContent = 'Floyd-Warshall Algorithm';
+                        graphAlgorithmInfoBox.innerHTML = `
+                            <h3>Floyd-Warshall Algorithm</h3>
+                            <p>The Floyd-Warshall algorithm is an algorithm for finding shortest paths in a weighted graph with positive or negative edge weights (but no negative cycles).</p>
+                            <p>It computes shortest paths between all pairs of nodes.</p>
+                            <h3>Pseudocode:</h3>
+                            <pre>
 function FloydWarshall(graph):
     dist = initialize distance matrix with edge weights or infinity
     
@@ -702,18 +729,16 @@ function FloydWarshall(graph):
         for i from 0 to n-1:
             for j from 0 to n-1:
                 dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])
-                        </pre>
-                    `;
-                    break;
-                case 'mst':
-                    algorithmTitle.textContent = 'Minimum Spanning Tree (Prim\'s Algorithm)';
-                    algorithmInfoBox.innerHTML = `
-                        <h3>Minimum Spanning Tree (MST) - Prim's Algorithm</h3>
-                        <p>
-                            Prim's algorithm is a greedy algorithm that finds a minimum spanning tree for a weighted undirected graph. It starts from an arbitrary vertex and grows the MST by adding the cheapest edge from the tree to a vertex not yet in the tree.
-                        </p>
-                        <h3>Pseudocode (Prim's):</h3>
-                        <pre>
+                            </pre>
+                        `;
+                        break;
+                    case 'mst':
+                        graphAlgorithmTitle.textContent = 'Minimum Spanning Tree (Prim\'s Algorithm)';
+                        graphAlgorithmInfoBox.innerHTML = `
+                            <h3>Minimum Spanning Tree (MST) - Prim's Algorithm</h3>
+                            <p>Prim's algorithm is a greedy algorithm that finds a minimum spanning tree for a weighted undirected graph. It starts from an arbitrary vertex and grows the MST by adding the cheapest edge from the tree to a vertex not yet in the tree.</p>
+                            <h3>Pseudocode (Prim's):</h3>
+                            <pre>
 function Prim(graph, startNode):
     min_cost = map of nodes to infinity
     parent = map of nodes to null
@@ -730,11 +755,23 @@ function Prim(graph, startNode):
                 min_cost[neighbor] = weight(currentNode, neighbor)
                 parent[neighbor] = currentNode
                 update neighbor in priorityQueue
-                        </pre>
-                    `;
-                    break;
+                            </pre>
+                        `;
+                        break;
+                }
+            } else if (currentMode === 'grid') {
+                gridAlgorithmTitle.textContent = 'Grid Algorithms';
+                gridAlgorithmInfoBox.innerHTML = `
+                    <h3>Grid Algorithms (Coming Soon)</h3>
+                    <p>
+                        This section will feature algorithms that operate on a grid, such as pathfinding algorithms (e.g., A*, Dijkstra on a grid) and maze generation algorithms.
+                    </p>
+                    <p>
+                        You will be able to define start/end points, add walls, and watch the algorithms find paths or generate mazes.
+                    </p>
+                `;
             }
-            resetVisualization(); // Reset visualization when algorithm changes
+            resetVisualization(); // Reset visualization when mode or algorithm changes
         }
 
         // Function to populate the start and target node dropdowns for graph algorithms
@@ -781,9 +818,6 @@ function Prim(graph, startNode):
                         if (endPos) {
                             // Determine edge color
                             ctx.strokeStyle = '#94a3b8'; // Default slate gray
-                            // For undirected graph visualization, ensure only one edge is drawn
-                            // by checking if we've already drawn it from the other direction.
-                            // This simple check works for this fixed graph.
                             const edgeKey1 = `${node}-${neighbor}`;
                             const edgeKey2 = `${neighbor}-${node}`;
 
@@ -907,6 +941,68 @@ function Prim(graph, startNode):
             distanceMatrixTableDiv.innerHTML = tableHTML;
         }
 
+        // --- Grid Visualization Functions ---
+        function initializeGrid() {
+            grid = Array(GRID_ROWS).fill(0).map(() => Array(GRID_COLS).fill(0)); // 0 for empty, 1 for wall, etc.
+            gridWalls = new Set();
+            gridVisited = new Set();
+            gridPath = [];
+            startGridNode = null;
+            endGridNode = null;
+
+            // Calculate cell size based on canvas dimensions
+            cellSize = Math.min(gridCanvas.width / GRID_COLS, gridCanvas.height / GRID_ROWS);
+
+            drawGrid();
+        }
+
+        function drawGrid() {
+            gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const x = c * cellSize;
+                    const y = r * cellSize;
+                    const cellKey = `${r}-${c}`;
+
+                    gridCtx.strokeStyle = '#cbd5e1'; // Light gray for grid lines
+                    gridCtx.strokeRect(x, y, cellSize, cellSize);
+
+                    // Fill cells based on state
+                    if (gridWalls.has(cellKey)) {
+                        gridCtx.fillStyle = '#4a5568'; // Dark gray for walls
+                    } else if (gridPath.includes(cellKey)) {
+                        gridCtx.fillStyle = '#6366f1'; // Indigo for path
+                    } else if (gridVisited.has(cellKey)) {
+                        gridCtx.fillStyle = '#93c5fd'; // Light blue for visited
+                    } else {
+                        gridCtx.fillStyle = '#ffffff'; // White for empty
+                    }
+                    gridCtx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2); // Fill with slight padding
+
+                    // Draw start/end nodes
+                    if (startGridNode && startGridNode.row === r && startGridNode.col === c) {
+                        gridCtx.fillStyle = '#10b981'; // Green for start
+                        gridCtx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                        gridCtx.fillStyle = '#ffffff';
+                        gridCtx.font = 'bold 16px Inter';
+                        gridCtx.textAlign = 'center';
+                        gridCtx.textBaseline = 'middle';
+                        gridCtx.fillText('S', x + cellSize / 2, y + cellSize / 2);
+                    }
+                    if (endGridNode && endGridNode.row === r && endGridNode.col === c) {
+                        gridCtx.fillStyle = '#ef4444'; // Red for end
+                        gridCtx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                        gridCtx.fillStyle = '#ffffff';
+                        gridCtx.font = 'bold 16px Inter';
+                        gridCtx.textAlign = 'center';
+                        gridCtx.textBaseline = 'middle';
+                        gridCtx.fillText('E', x + cellSize / 2, y + cellSize / 2);
+                    }
+                }
+            }
+        }
+
         // --- Algorithm Implementations ---
 
         // Breadth-First Search Algorithm with Visualization
@@ -927,10 +1023,10 @@ function Prim(graph, startNode):
             currentNode = null;
             finalizedNodes = new Set();
             pathNodes = [];
-            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydDistMatrix = [];
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
-            mstEdges = new Set(); // Clear MST specific state
+            mstEdges = new Set();
             mstTotalWeight = 0;
 
             const queue = [];
@@ -997,10 +1093,10 @@ function Prim(graph, startNode):
             currentNode = null;
             finalizedNodes = new Set();
             pathNodes = [];
-            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydDistMatrix = [];
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
-            mstEdges = new Set(); // Clear MST specific state
+            mstEdges = new Set();
             mstTotalWeight = 0;
 
             const stack = [];
@@ -1062,27 +1158,24 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
 
-            // Reset Dijkstra specific state
             distances = {};
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
 
-            // Reset general visualization state
             visitedNodes = new Set();
             queueNodes = [];
             stackNodes = [];
             currentNode = null;
             visitedOrder = [];
-            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydDistMatrix = [];
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
-            mstEdges = new Set(); // Clear MST specific state
+            mstEdges = new Set();
             mstTotalWeight = 0;
 
             const priorityQueue = new MinPriorityQueue();
 
-            // Initialize distances
             for (const node in graph) {
                 distances[node] = Infinity;
                 previousNodes[node] = null;
@@ -1163,7 +1256,6 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
 
-            // Reset general visualization state
             visitedNodes = new Set();
             queueNodes = [];
             stackNodes = [];
@@ -1173,48 +1265,46 @@ function Prim(graph, startNode):
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
-            mstEdges = new Set(); // Clear MST specific state
+            mstEdges = new Set();
             mstTotalWeight = 0;
 
-            // Initialize distance matrix
             floydDistMatrix = Array(numNodes).fill(0).map(() => Array(numNodes).fill(Infinity));
             floydPathMatrix = Array(numNodes).fill(0).map(() => Array(numNodes).fill(null));
 
             for (let i = 0; i < numNodes; i++) {
-                floydDistMatrix[i][i] = 0; // Distance to self is 0
+                floydDistMatrix[i][i] = 0;
             }
 
-            // Populate initial distances from graph
             for (const nodeName in graph) {
                 const i = nodesArray.indexOf(nodeName);
                 for (const edge of graph[nodeName]) {
                     const j = nodesArray.indexOf(edge.node);
                     floydDistMatrix[i][j] = edge.weight;
-                    floydPathMatrix[i][j] = i; // Direct path from i to j
+                    floydPathMatrix[i][j] = i;
                 }
             }
 
-            drawMatrix(floydDistMatrix); // Initial draw of the matrix
-            drawGraph(); // Draw graph with no highlights
-            await new Promise(resolve => setTimeout(resolve, animationSpeed * 2)); // Initial pause
+            drawMatrix(floydDistMatrix);
+            drawGraph();
+            await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
 
             for (let k = 0; k < numNodes; k++) {
-                currentK = k; // Highlight current intermediate node on graph
-                drawGraph(); // Update graph to highlight K
+                currentK = k;
+                drawGraph();
                 await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
 
                 for (let i = 0; i < numNodes; i++) {
                     for (let j = 0; j < numNodes; j++) {
-                        currentI = i; // Highlight current i, j in matrix
+                        currentI = i;
                         currentJ = j;
-                        drawMatrix(floydDistMatrix, currentI, currentJ); // Highlight current cell
+                        drawMatrix(floydDistMatrix, currentI, currentJ);
                         await new Promise(resolve => setTimeout(resolve, animationSpeed));
 
                         if (floydDistMatrix[i][k] !== Infinity && floydDistMatrix[k][j] !== Infinity) {
                             if (floydDistMatrix[i][j] > floydDistMatrix[i][k] + floydDistMatrix[k][j]) {
                                 floydDistMatrix[i][j] = floydDistMatrix[i][k] + floydDistMatrix[k][j];
-                                floydPathMatrix[i][j] = floydPathMatrix[k][j]; // Update path
-                                drawMatrix(floydDistMatrix, -1, -1, i, j); // Highlight updated cell
+                                floydPathMatrix[i][j] = floydPathMatrix[k][j];
+                                drawMatrix(floydDistMatrix, -1, -1, i, j);
                                 await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
                             }
                         }
@@ -1222,10 +1312,9 @@ function Prim(graph, startNode):
                 }
             }
 
-            // Algorithm complete
-            currentK = -1; currentI = -1; currentJ = -1; // Clear highlights
+            currentK = -1; currentI = -1; currentJ = -1;
             drawGraph();
-            drawMatrix(floydDistMatrix); // Final draw of the matrix
+            drawMatrix(floydDistMatrix);
             isAlgorithmRunning = false;
             startButton.disabled = false;
             resetButton.disabled = false;
@@ -1251,29 +1340,26 @@ function Prim(graph, startNode):
             modeSelect.disabled = true;
             targetNodeSelect.disabled = true;
 
-            // Reset MST specific state
             mstEdges = new Set();
             mstTotalWeight = 0;
 
-            // Reset general visualization state
-            visitedNodes = new Set(); // Nodes included in MST
+            visitedNodes = new Set();
             queueNodes = [];
             stackNodes = [];
             currentNode = null;
             visitedOrder = [];
-            distances = {}; // Clear Dijkstra specific state
+            distances = {};
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
-            floydDistMatrix = []; // Clear Floyd-Warshall specific state
+            floydDistMatrix = [];
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
 
-            const minCost = {}; // Stores the minimum cost to connect a node to the MST
-            const parent = {}; // Stores the parent node in the MST
+            const minCost = {};
+            const parent = {};
             const priorityQueue = new MinPriorityQueue();
 
-            // Initialize
             nodesArray.forEach(node => {
                 minCost[node] = Infinity;
                 parent[node] = null;
@@ -1290,44 +1376,40 @@ function Prim(graph, startNode):
                 const { value: node, priority: currentMinCost } = priorityQueue.dequeue();
 
                 if (visitedNodes.has(node)) {
-                    continue; // Already added to MST
+                    continue;
                 }
 
                 currentNode = node;
-                visitedNodes.add(node); // Add node to MST
+                visitedNodes.add(node);
 
                 if (parent[node] !== null) {
-                    // Add the edge to MST
                     const edgeKey1 = `${parent[node]}-${node}`;
                     const edgeKey2 = `${node}-${parent[node]}`;
-                    mstEdges.add(edgeKey1); // Add both directions for drawing consistency
+                    mstEdges.add(edgeKey1);
                     mstEdges.add(edgeKey2);
                     mstTotalWeight += currentMinCost;
                     edgesInMSTCount++;
                 }
 
-                drawGraph(); // Update node and edge colors
+                drawGraph();
                 await new Promise(resolve => setTimeout(resolve, animationSpeed));
 
-                // Explore neighbors
                 for (const edge of graph[node]) {
                     const neighbor = edge.node;
                     const weight = edge.weight;
 
-                    // For Prim's, consider undirected edges
-                    // Check if the neighbor is not yet in the MST and if this path is cheaper
                     if (!visitedNodes.has(neighbor) && weight < minCost[neighbor]) {
                         minCost[neighbor] = weight;
                         parent[neighbor] = node;
                         priorityQueue.enqueue(neighbor, weight);
-                        drawGraph(); // Update graph to show potential new cheapest edge
+                        drawGraph();
                         await new Promise(resolve => setTimeout(resolve, animationSpeed));
                     }
                 }
             }
 
             currentNode = null;
-            drawGraph(); // Final draw
+            drawGraph();
             isAlgorithmRunning = false;
             startButton.disabled = false;
             resetButton.disabled = false;
@@ -1343,34 +1425,41 @@ function Prim(graph, startNode):
             console.log("MST Total Weight:", mstTotalWeight);
         }
 
+        // --- Placeholder for Grid Algorithm ---
+        async function runGridAlgorithm() {
+            showModal("Grid Algorithm", "Grid-based algorithms are coming soon!");
+        }
 
         // Function to reset the current visualization state
         function resetVisualization() {
+            // Reset graph-specific states
             visitedNodes = new Set();
             queueNodes = [];
             stackNodes = [];
             currentNode = null;
             visitedOrder = [];
-            // Reset Dijkstra specific state
             distances = {};
             previousNodes = {};
             finalizedNodes = new Set();
             pathNodes = [];
-            // Reset Floyd-Warshall specific state
             floydDistMatrix = [];
             floydPathMatrix = [];
             currentK = -1; currentI = -1; currentJ = -1;
-            distanceMatrixTableDiv.innerHTML = ''; // Clear matrix table
-            // Reset MST specific state
+            distanceMatrixTableDiv.innerHTML = '';
             mstEdges = new Set();
             mstTotalWeight = 0;
 
+            // Reset grid-specific states
+            gridWalls = new Set();
+            gridVisited = new Set();
+            gridPath = [];
+            startGridNode = null;
+            endGridNode = null;
 
             if (currentMode === 'graph') {
                 drawGraph();
             } else if (currentMode === 'grid') {
-                // Placeholder for grid reset
-                console.log("Grid reset logic here.");
+                initializeGrid(); // Re-initialize and draw empty grid
             }
             startButton.disabled = false;
             resetButton.disabled = false;
@@ -1415,11 +1504,11 @@ function Prim(graph, startNode):
                             floydWarshall();
                             break;
                         case 'mst':
-                            primMST(selectedStartNode); // Start Prim's from selected node
+                            primMST(selectedStartNode);
                             break;
                     }
                 } else if (currentMode === 'grid') {
-                    showModal("Feature Not Ready", "Grid algorithms are not yet implemented. Please select 'Graph' mode.");
+                    runGridAlgorithm(); // Placeholder for grid algorithm start
                 }
             }
         });
@@ -1433,26 +1522,51 @@ function Prim(graph, startNode):
             speedValueSpan.textContent = `${animationSpeed}ms`;
         });
 
+        // Grid specific event listeners
+        generateGridButton.addEventListener('click', () => {
+            initializeGrid();
+            showModal("Grid Generated", "An empty grid has been generated. You can now implement grid algorithms.");
+        });
+
+        clearGridButton.addEventListener('click', () => {
+            initializeGrid(); // Re-initialize to clear any drawings
+            showModal("Grid Cleared", "The grid has been cleared.");
+        });
+
+        gridSpeedSlider.addEventListener('input', (event) => {
+            animationSpeed = parseInt(event.target.value); // Use same animationSpeed for now
+            gridSpeedValueSpan.textContent = `${animationSpeed}ms`;
+        });
+
+
         // Initialize on load
         window.onload = function() {
             // Set canvas dimensions based on its container, but cap max width
             const containerWidth = canvas.parentElement.clientWidth;
-            canvas.width = Math.min(containerWidth * 0.9, 900); // 90% of container width, max 900px
-            canvas.height = 500; // Fixed height for graph
+            canvas.width = Math.min(containerWidth * 0.9, 900); // Graph canvas
+            canvas.height = 500;
 
-            populateNodeSelects(); // Populate both start and target
+            gridCanvas.width = Math.min(containerWidth * 0.9, 900); // Grid canvas
+            gridCanvas.height = 500;
+
+            populateNodeSelects();
             updateUI(); // Initial UI setup
             drawGraph(); // Initial graph draw
+            initializeGrid(); // Initial grid draw
         };
 
         // Handle window resize to make canvas responsive
         window.addEventListener('resize', () => {
+            const containerWidth = canvas.parentElement.clientWidth;
+            canvas.width = Math.min(containerWidth * 0.9, 900);
+            gridCanvas.width = Math.min(containerWidth * 0.9, 900);
+
             if (currentMode === 'graph') {
-                const containerWidth = canvas.parentElement.clientWidth;
-                canvas.width = Math.min(containerWidth * 0.9, 900);
                 drawGraph(); // Redraw graph to fit new canvas size
+            } else if (currentMode === 'grid') {
+                cellSize = Math.min(gridCanvas.width / GRID_COLS, gridCanvas.height / GRID_ROWS); // Recalculate cellSize
+                drawGrid(); // Redraw grid to fit new canvas size
             }
-            // No specific resize for grid placeholder needed right now
         });
     </script>
 </body>
