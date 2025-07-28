@@ -407,6 +407,135 @@
         .compare-results .result-item span:first-child {
             font-weight: 600;
         }
+
+        /* Chatbot Popup Styles */
+        #chatPopup {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            z-index: 100; /* Ensure it's above other content */
+            overflow: hidden; /* Hide overflow for rounded corners */
+            transform: scale(0); /* Start hidden and scaled down */
+            transform-origin: bottom right;
+            transition: all 0.3s ease-in-out;
+            visibility: hidden; /* Hidden for accessibility until active */
+        }
+        #chatPopup.open {
+            transform: scale(1);
+            visibility: visible;
+        }
+
+        #chatPopupHeader {
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 0.75rem 1rem;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        #chatPopupHeader button {
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            margin: 0;
+        }
+
+        #chatMessages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background-color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .chat-message {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            line-height: 1.4;
+        }
+        .chat-message.user {
+            background-color: #4f46e5; /* Indigo */
+            color: #ffffff;
+            align-self: flex-end;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .chat-message.bot {
+            background-color: #e2e8f0; /* Light blue-gray */
+            color: #1e293b;
+            align-self: flex-start;
+            border-bottom-left-radius: 0.25rem;
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 1rem;
+            gap: 0.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        #chatInput {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff;
+            color: #334155;
+        }
+        #chatInput:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .chat-buttons {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 1rem 1rem; /* Padding at bottom of popup */
+            justify-content: flex-end;
+        }
+
+        /* Floating Action Button (FAB) */
+        #chatFab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #4f46e5; /* Indigo */
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 101; /* Above the popup when closed */
+            transition: all 0.3s ease-in-out;
+        }
+        #chatFab:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+        }
+        #chatFab.hidden-fab {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0);
+        }
     </style>
 </head>
 <body>
@@ -579,7 +708,7 @@ function BFS_Grid(grid, startNode, endNode):
             </div>
         </div>
 
-        <div id="compareContainer" class="compare-container hidden">
+        <div id="compareContainer" class="container hidden">
             <h2 class="text-2xl font-semibold text-gray-700 mb-4">Algorithm Comparison</h2>
             <div class="controls">
                 <div class="input-group">
@@ -637,6 +766,31 @@ function BFS_Grid(grid, startNode, endNode):
         </div>
     </div>
 
+    <!-- Floating Action Button (FAB) for Chatbot -->
+    <div id="chatFab">💬</div>
+
+    <!-- Chatbot Popup Container -->
+    <div id="chatPopup">
+        <div id="chatPopupHeader">
+            <span>AlgoGlimps Buddy</span>
+            <button id="closeChatButton">&times;</button>
+        </div>
+        <div id="chatMessages">
+            <!-- Chat messages will be appended here -->
+            <div class="chat-message bot">Hi there! I'm AlgoGlimps Buddy. How can I help you with algorithms today?</div>
+        </div>
+        <div id="chatLoadingIndicator" class="hidden text-center text-gray-500 mt-2">
+            AlgoGlimps Buddy is typing...
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Ask me anything about algorithms..." class="flex-grow">
+            <button id="sendChatButton" class="btn btn-primary">Send</button>
+        </div>
+        <div class="chat-buttons">
+            <button id="clearChatButton" class="btn btn-secondary">Clear Chat</button>
+        </div>
+    </div>
+
     <!-- Custom Modal for Alerts -->
     <div id="customModal" class="modal">
         <div class="modal-content">
@@ -648,7 +802,7 @@ function BFS_Grid(grid, startNode, endNode):
 
     <script>
         // Global state variables
-        let currentMode = 'graph'; // 'graph', 'grid', or 'compare'
+        let currentMode = 'graph'; // 'graph', 'grid', 'compare'
         let currentAlgorithm = 'bfs'; // 'bfs', 'dfs', 'dijkstra', 'floyd-warshall', 'mst'
         let animationSpeed = 200; // Milliseconds (used for both graph and grid animations)
 
@@ -659,6 +813,7 @@ function BFS_Grid(grid, startNode, endNode):
         const graphContainer = document.getElementById('graphContainer');
         const gridContainer = document.getElementById('gridContainer');
         const compareContainer = document.getElementById('compareContainer');
+        // Removed static chatContainer from main content
 
         const graphAlgorithmTitle = document.getElementById('graphAlgorithmTitle');
         const graphAlgorithmInfoBox = document.getElementById('graphAlgorithmInfoBox');
@@ -751,6 +906,17 @@ function BFS_Grid(grid, startNode, endNode):
         const llmExplanationBox = document.getElementById('llmExplanationBox');
         const llmExplanationContent = document.getElementById('llmExplanationContent');
         const llmLoadingIndicator = document.getElementById('llmLoadingIndicator');
+
+        // Chatbot Elements (now part of the popup)
+        const chatFab = document.getElementById('chatFab');
+        const chatPopup = document.getElementById('chatPopup');
+        const closeChatButton = document.getElementById('closeChatButton');
+        const chatMessagesDiv = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatButton = document.getElementById('sendChatButton');
+        const clearChatButton = document.getElementById('clearChatButton');
+        const chatLoadingIndicator = document.getElementById('chatLoadingIndicator');
+        let chatHistory = []; // Stores chat messages for context
 
 
         // Graph definition (nodes and edges) - NOW DYNAMICALLY MODIFIABLE
@@ -857,9 +1023,11 @@ function BFS_Grid(grid, startNode, endNode):
             graphContainer.classList.add('hidden');
             gridContainer.classList.add('hidden');
             compareContainer.classList.add('hidden');
+            // chatContainer is now a popup, not part of main content flow
 
             // Show/hide algorithm select in nav based on mode
             algorithmSelect.style.display = (currentMode === 'graph') ? 'block' : 'none';
+            algorithmSelect.disabled = false; // Always enable algorithm select in nav, unless comparison is running
 
             // Show/hide containers based on mode
             if (currentMode === 'graph') {
@@ -908,7 +1076,7 @@ function BFS_Grid(grid, startNode, endNode):
                 speedSlider.disabled = algorithmControlsDisabled;
                 startNodeSelect.disabled = algorithmControlsDisabled;
                 targetNodeSelect.disabled = algorithmControlsDisabled;
-                algorithmSelect.disabled = algorithmControlsDisabled;
+                // algorithmSelect.disabled is handled outside this block for nav
                 showFloydPathButton.disabled = algorithmControlsDisabled || floydWarshallResult.finalMatrix.length === 0;
                 explainAlgoButton.disabled = algorithmControlsDisabled; // Disable LLM button during interaction
 
@@ -946,7 +1114,8 @@ function BFS_Grid(grid, startNode, endNode):
                 compareTargetNodeSelect.disabled = isAlgorithmRunning;
                 compareSpeedSlider.disabled = isAlgorithmRunning;
             }
-
+            // The chat mode in the select is now just a label, the actual chat is a popup
+            
             // Update algorithm title and info box based on mode
             if (currentMode === 'graph') {
                 switch (currentAlgorithm) {
@@ -972,7 +1141,7 @@ function BFS(graph, startNode):
             if neighbor is not in V:
                 add neighbor to V
                 add neighbor to Q
-                                </pre>
+                </pre>
                         `;
                         break;
                     case 'dfs':
@@ -1077,7 +1246,7 @@ function Prim(graph, startNode):
                         This algorithm finds the shortest path between a start and an end point on a grid, avoiding walls.
                     </p>
                     <p>
-                        Click 'Set Start' to place the starting point, 'Set End' for the destination, and 'Add Wall' to draw obstacles. Then click 'Run Grid Algorithm' to see BFS in action.
+                        You will be able to define start/end points, add walls, and watch the algorithms find paths or generate mazes.
                     </p>
                     <h3>Pseudocode:</h3>
                     <pre>
@@ -1799,10 +1968,9 @@ function BFS_Grid(grid, startNode, endNode):
 
             localCurrentNode = null;
             drawGraph(context, graphData, nodePositionsData, {
-                dijkstraDistances: localDistances,
-                current: localCurrentNode,
-                finalized: localFinalizedNodes,
-                path: localPathNodes
+                visited: localVisitedNodes,
+                queue: localQueueNodes,
+                current: localCurrentNode
             });
             onComplete({ pathLength: localDistances[targetNode], path: localPathNodes.join(' -> ') });
         }
@@ -2216,6 +2384,13 @@ function BFS_Grid(grid, startNode, endNode):
             gridPath = [];
             isDrawingWalls = false; // Ensure wall drawing flag is reset
 
+            // Reset chat-specific states
+            chatHistory = [];
+            chatMessagesDiv.innerHTML = '<div class="chat-message bot">Hi there! I\'m AlgoGlimps Buddy. How can I help you with algorithms today?</div>';
+            chatLoadingIndicator.classList.add('hidden'); // Hide loading indicator
+            chatPopup.classList.remove('open'); // Ensure popup is closed on reset
+            chatFab.classList.remove('hidden-fab'); // Ensure FAB is visible on reset
+
             if (currentMode === 'graph') {
                 drawGraph(ctx, graph, nodePositions, { interactionMode: currentGraphInteractionMode, startEdgeNode, mouseX, mouseY, path: currentFloydPath });
             } else if (currentMode === 'grid') {
@@ -2237,7 +2412,7 @@ function BFS_Grid(grid, startNode, endNode):
             speedSlider.disabled = false;
             startNodeSelect.disabled = false;
             targetNodeSelect.disabled = false;
-            algorithmSelect.disabled = false;
+            algorithmSelect.disabled = false; // Re-enable algorithm select in nav
             modeSelect.disabled = false;
             graphInteractionModeSelect.disabled = false;
             runGridAlgorithmButton.disabled = false;
@@ -2270,11 +2445,11 @@ function BFS_Grid(grid, startNode, endNode):
 
             const prompt = `Explain the ${algorithmName} algorithm in detail, including its time complexity, space complexity, common use cases, and a simple analogy to help understand it. Format the explanation using Markdown, with clear headings and bullet points.`;
 
-            let chatHistory = [];
-            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            let chatHistoryForExplanation = [];
+            chatHistoryForExplanation.push({ role: "user", parts: [{ text: prompt }] });
 
-            const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyCG6coSGkxY0Ming4eEZXFa57Eft8uX0W0"; // Leave this as-is; Canvas will automatically provide it.
+            const payload = { contents: chatHistoryForExplanation };
+            const apiKey = 'AIzaSyCG6coSGkxY0Ming4eEZXFa57Eft8uX0W0'; // Use __api_key if available
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             try {
@@ -2283,6 +2458,12 @@ function BFS_Grid(grid, startNode, endNode):
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+
+                // Check if the response was successful (status 200-299)
+                if (!response.ok) {
+                    const errorText = await response.text(); // Get raw error message
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
 
                 const result = await response.json();
                 if (result.candidates && result.candidates.length > 0 &&
@@ -2297,10 +2478,82 @@ function BFS_Grid(grid, startNode, endNode):
                 }
             } catch (error) {
                 llmExplanationContent.textContent = `Error: ${error.message}. Could not fetch explanation.`;
-                console.error("Error calling Gemini API:", error);
+                console.error("Error calling Gemini API for explanation:", error);
             } finally {
                 llmLoadingIndicator.classList.add('hidden'); // Hide loading indicator
                 explainAlgoButton.disabled = false; // Re-enable button
+            }
+        }
+
+        // --- Chatbot Functions ---
+        function addMessageToChat(sender, message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('chat-message', sender);
+            messageDiv.innerHTML = marked.parse(message); // Render markdown in chat messages
+            chatMessagesDiv.appendChild(messageDiv);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight; // Scroll to bottom
+        }
+
+        async function sendMessageToGeminiChat(message) {
+            if (message.trim() === '') return;
+
+            addMessageToChat('user', message);
+            chatInput.value = ''; // Clear input
+
+            chatLoadingIndicator.classList.remove('hidden'); // Show loading indicator
+            sendChatButton.disabled = true; // Disable send button
+            chatInput.disabled = true; // Disable input field
+
+            let currentChatHistory = [];
+
+            // If chatHistory is empty, add a system instruction as part of the first user message
+            if (chatHistory.length === 0) {
+                const systemInstruction = "You are AlgoGlimps Buddy, a helpful AI assistant for understanding algorithms. You have context about the user's current view in the AlgoGlimps application. Provide concise and informative answers. If the user asks about the current state, refer to the provided context.";
+                const contextMessage = `The user is currently in the "${currentMode}" mode of the AlgoGlimps application. The selected algorithm is "${getAlgorithmName(currentAlgorithm)}".`;
+                currentChatHistory.push({ role: "user", parts: [{ text: `${systemInstruction}\n\n${contextMessage}\n\nUser's question: ${message}` }] });
+            } else {
+                // For subsequent messages, just add the user's message with context
+                const contextMessage = `The user is currently in the "${currentMode}" mode of the AlgoGlimps application. The selected algorithm is "${getAlgorithmName(currentAlgorithm)}".`;
+                currentChatHistory = [...chatHistory, { role: "user", parts: [{ text: `${contextMessage}\n\nUser's question: ${message}` }] }];
+            }
+
+            const payload = { contents: currentChatHistory };
+            const apiKey = 'AIzaSyCG6coSGkxY0Ming4eEZXFa57Eft8uX0W0'; // Use __api_key if available
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // Check if the response was successful (status 200-299)
+                if (!response.ok) {
+                    const errorText = await response.text(); // Get raw error message
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const botResponse = result.candidates[0].content.parts[0].text;
+                    addMessageToChat('bot', botResponse);
+                    chatHistory.push({ role: "user", parts: [{ text: message }] }); // Add original user message to history
+                    chatHistory.push({ role: "model", parts: [{ text: botResponse }] }); // Add bot response to history
+                } else {
+                    addMessageToChat('bot', "Sorry, I couldn't get a response. Please try again.");
+                    console.error("Gemini API chat response structure unexpected:", result);
+                }
+            } catch (error) {
+                addMessageToChat('bot', `Error: ${error.message}. Could not connect to AlgoGlimps Buddy.`);
+                console.error("Error calling Gemini API for chat:", error);
+            } finally {
+                chatLoadingIndicator.classList.add('hidden'); // Hide loading indicator
+                sendChatButton.disabled = false; // Re-enable send button
+                chatInput.disabled = false; // Re-enable input field
+                chatInput.focus(); // Focus input field
             }
         }
 
@@ -2404,7 +2657,7 @@ function BFS_Grid(grid, startNode, endNode):
                     drawGraph(ctx, graph, nodePositions, { path: currentFloydPath });
                     showModal("Path Found!", `Path from ${pathStart} to ${pathEnd}: ${floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)] === Infinity ? 'No path' : path.join(' -> ')} (Distance: ${floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)] === Infinity ? 'Infinity' : floydWarshallResult.finalMatrix[nodesArray.indexOf(pathStart)][nodesArray.indexOf(pathEnd)]})`);
                 } else {
-                    currentFloloydPath = []; // Clear path if not found
+                    currentFloydPath = []; // Clear path if not found
                     drawGraph(ctx, graph, nodePositions, { path: currentFloydPath }); // Redraw to clear any old path
                     showModal("No Path", `No path found from ${pathStart} to ${pathEnd}.`);
                 }
@@ -2478,6 +2731,30 @@ function BFS_Grid(grid, startNode, endNode):
             compareSpeedSlider.addEventListener('input', (event) => {
                 animationSpeed = parseInt(event.target.value); // Use same animationSpeed for compare
                 compareSpeedValueSpan.textContent = `${animationSpeed}ms`;
+            });
+
+            // Chatbot FAB and Popup event listeners
+            chatFab.addEventListener('click', () => {
+                chatPopup.classList.toggle('open');
+                if (chatPopup.classList.contains('open')) {
+                    chatInput.focus();
+                }
+            });
+
+            closeChatButton.addEventListener('click', () => {
+                chatPopup.classList.remove('open');
+            });
+
+            sendChatButton.addEventListener('click', () => sendMessageToGeminiChat(chatInput.value));
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessageToGeminiChat(chatInput.value);
+                }
+            });
+            clearChatButton.addEventListener('click', () => {
+                chatHistory = [];
+                chatMessagesDiv.innerHTML = '<div class="chat-message bot">Hi there! I\'m AlgoGlimps Buddy. How can I help you with algorithms today?</div>';
+                showModal("Chat Cleared", "The chat history has been cleared.");
             });
 
 
