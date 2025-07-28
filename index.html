@@ -210,7 +210,7 @@
             font-weight: 500; /* font-medium */
             color: #4a5568; /* Darker gray text */
         }
-        .input-group select {
+        .input-group select, .input-group input[type="number"] {
             padding: 0.5rem 0.75rem;
             border-radius: 0.375rem; /* rounded-md */
             border: 1px solid #cbd5e1;
@@ -369,6 +369,20 @@
             <canvas id="visualizationCanvas"></canvas>
 
             <div class="controls">
+                <div class="input-group" id="graphInteractionModeGroup">
+                    <label for="graphInteractionMode">Interaction Mode:</label>
+                    <select id="graphInteractionMode" class="form-select">
+                        <option value="select">Select/Move Node</option>
+                        <option value="add-node">Add Node</option>
+                        <option value="remove-node">Remove Node</option>
+                        <option value="add-edge">Add Edge</option>
+                        <option value="remove-edge">Remove Edge</option>
+                    </select>
+                </div>
+                <div class="input-group" id="newEdgeWeightGroup" style="display: none;">
+                    <label for="newEdgeWeight">Edge Weight:</label>
+                    <input type="number" id="newEdgeWeight" value="1" min="1" class="form-input w-20">
+                </div>
                 <div class="input-group" id="startNodeGroup">
                     <label for="startNodeSelect">Start Node:</label>
                     <select id="startNodeSelect" class="form-select"></select>
@@ -485,6 +499,11 @@ function BFS(graph, startNode):
         const startNodeGroup = document.getElementById('startNodeGroup');
         const targetNodeGroup = document.getElementById('targetNodeGroup');
 
+        // Graph Customization Elements
+        const graphInteractionModeSelect = document.getElementById('graphInteractionMode');
+        const newEdgeWeightInput = document.getElementById('newEdgeWeight');
+        const newEdgeWeightGroup = document.getElementById('newEdgeWeightGroup');
+
         // Custom Modal Elements
         const customModal = document.getElementById('customModal');
         const modalTitle = document.getElementById('modalTitle');
@@ -503,8 +522,8 @@ function BFS(graph, startNode):
         const gridSpeedSlider = document.getElementById('gridSpeedSlider');
         const gridSpeedValueSpan = document.getElementById('gridSpeedValue');
 
-        // Graph definition (nodes and edges) - NOW WEIGHTED
-        const graph = {
+        // Graph definition (nodes and edges) - NOW DYNAMICALLY MODIFIABLE
+        let graph = {
             'A': [{ node: 'B', weight: 4 }, { node: 'C', weight: 2 }],
             'B': [{ node: 'A', weight: 4 }, { node: 'D', weight: 5 }, { node: 'E', weight: 10 }],
             'C': [{ node: 'A', weight: 2 }, { node: 'F', weight: 3 }],
@@ -514,8 +533,8 @@ function BFS(graph, startNode):
             'G': [{ node: 'F', weight: 8 }]
         };
 
-        // Node positions for drawing (fixed for now for a clear layout)
-        const nodePositions = {
+        // Node positions for drawing (fixed for now for a clear layout) - NOW DYNAMICALLY MODIFIABLE
+        let nodePositions = {
             'A': { x: 150, y: 100 },
             'B': { x: 300, y: 50 },
             'C': { x: 300, y: 150 },
@@ -526,8 +545,9 @@ function BFS(graph, startNode):
         };
 
         const nodeRadius = 25;
-        const nodesArray = Object.keys(graph); // Array of node names for matrix indexing
-        const numNodes = nodesArray.length;
+        let nodesArray = Object.keys(graph); // Array of node names for matrix indexing
+        let numNodes = nodesArray.length;
+        let nextNodeId = 'H'; // For adding new nodes, start from 'H'
 
         // State variables for graph algorithm visualization
         let visitedNodes = new Set();
@@ -562,6 +582,12 @@ function BFS(graph, startNode):
         let gridWalls = new Set(); // Stores "row-col" strings for wall positions
         let gridVisited = new Set(); // For grid pathfinding visualization
         let gridPath = []; // For grid path visualization
+
+        // Graph Interaction State
+        let currentGraphInteractionMode = 'select'; // 'select', 'add-node', 'remove-node', 'add-edge', 'remove-edge'
+        let draggedNode = null; // Node currently being dragged
+        let startEdgeNode = null; // First node clicked when adding an edge
+        let mouseX = 0, mouseY = 0; // Current mouse position for drawing temporary edge
 
         // --- Custom Modal Function ---
         function showModal(title, message) {
@@ -609,6 +635,9 @@ function BFS(graph, startNode):
                 
                 // Show/hide graph-specific controls
                 document.querySelector('#graphContainer .controls').classList.remove('hidden');
+                document.getElementById('graphInteractionModeGroup').style.display = 'flex'; // Always show interaction mode
+
+                // Show/hide algorithm-specific dropdowns
                 if (currentAlgorithm === 'bfs' || currentAlgorithm === 'dfs' || currentAlgorithm === 'dijkstra' || currentAlgorithm === 'mst') {
                     startNodeGroup.style.display = 'flex';
                 } else {
@@ -626,6 +655,22 @@ function BFS(graph, startNode):
                 } else {
                     matrixContainer.classList.add('hidden');
                 }
+
+                // Show/hide edge weight input based on interaction mode
+                if (currentGraphInteractionMode === 'add-edge') {
+                    newEdgeWeightGroup.style.display = 'flex';
+                } else {
+                    newEdgeWeightGroup.style.display = 'none';
+                }
+
+                // Disable algorithm-specific controls if in an interaction mode other than 'select'
+                const algorithmControlsDisabled = currentGraphInteractionMode !== 'select';
+                startButton.disabled = algorithmControlsDisabled;
+                resetButton.disabled = algorithmControlsDisabled;
+                speedSlider.disabled = algorithmControlsDisabled;
+                startNodeSelect.disabled = algorithmControlsDisabled;
+                targetNodeSelect.disabled = algorithmControlsDisabled;
+                algorithmSelect.disabled = algorithmControlsDisabled;
 
             } else if (currentMode === 'grid') {
                 graphContainer.classList.add('hidden');
@@ -778,6 +823,9 @@ function Prim(graph, startNode):
         function populateNodeSelects() {
             startNodeSelect.innerHTML = ''; // Clear existing options
             targetNodeSelect.innerHTML = '';
+            nodesArray = Object.keys(graph); // Update nodesArray
+            numNodes = nodesArray.length; // Update numNodes
+
             nodesArray.forEach(node => {
                 const optionStart = document.createElement('option');
                 optionStart.value = node;
@@ -793,6 +841,9 @@ function Prim(graph, startNode):
             if (nodesArray.length > 0) {
                 startNodeSelect.value = nodesArray[0];
                 targetNodeSelect.value = nodesArray[nodesArray.length - 1]; // Default target to last node
+            } else {
+                startNodeSelect.value = '';
+                targetNodeSelect.value = '';
             }
         }
 
@@ -808,21 +859,21 @@ function Prim(graph, startNode):
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            for (const node in graph) {
-                const startPos = nodePositions[node];
+            for (const nodeName in graph) {
+                const startPos = nodePositions[nodeName];
                 if (startPos) {
-                    for (const edge of graph[node]) {
+                    for (const edge of graph[nodeName]) {
                         const neighbor = edge.node;
                         const weight = edge.weight;
                         const endPos = nodePositions[neighbor];
                         if (endPos) {
                             // Determine edge color
                             ctx.strokeStyle = '#94a3b8'; // Default slate gray
-                            const edgeKey1 = `${node}-${neighbor}`;
-                            const edgeKey2 = `${neighbor}-${node}`;
+                            const edgeKey1 = `${nodeName}-${neighbor}`;
+                            const edgeKey2 = `${neighbor}-${nodeName}`;
 
-                            if (currentAlgorithm === 'dijkstra' && pathNodes.includes(node) && pathNodes.includes(neighbor) &&
-                                (pathNodes.indexOf(node) === pathNodes.indexOf(neighbor) - 1 || pathNodes.indexOf(neighbor) === pathNodes.indexOf(node) - 1)) {
+                            if (currentAlgorithm === 'dijkstra' && pathNodes.includes(nodeName) && pathNodes.includes(neighbor) &&
+                                (pathNodes.indexOf(nodeName) === pathNodes.indexOf(neighbor) - 1 || pathNodes.indexOf(neighbor) === pathNodes.indexOf(nodeName) - 1)) {
                                 ctx.strokeStyle = '#059669'; // Green for shortest path edges
                             } else if (currentAlgorithm === 'mst' && (mstEdges.has(edgeKey1) || mstEdges.has(edgeKey2))) {
                                 ctx.strokeStyle = '#059669'; // Green for MST edges
@@ -846,6 +897,19 @@ function Prim(graph, startNode):
                             ctx.fillText(weight, midX + offsetX, midY + offsetY);
                         }
                     }
+                }
+            }
+
+            // Draw temporary edge line if adding edge
+            if (currentGraphInteractionMode === 'add-edge' && startEdgeNode) {
+                const startPos = nodePositions[startEdgeNode];
+                if (startPos) {
+                    ctx.strokeStyle = '#f59e0b'; // Amber for temporary edge
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(startPos.x, startPos.y);
+                    ctx.lineTo(mouseX, mouseY);
+                    ctx.stroke();
                 }
             }
 
@@ -889,6 +953,16 @@ function Prim(graph, startNode):
                         fillColor = '#ef4444'; // Red for current processing
                     }
                 }
+
+                // Highlight dragged node
+                if (draggedNode === node) {
+                    fillColor = '#6366f1'; // Indigo for dragged node
+                }
+                // Highlight startEdgeNode
+                if (startEdgeNode === node) {
+                    fillColor = '#f59e0b'; // Amber for start edge node
+                }
+
 
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
@@ -1003,10 +1077,116 @@ function Prim(graph, startNode):
             }
         }
 
+        // --- Graph Customization Functions ---
+
+        // Helper to find node under mouse
+        function getNodeAt(x, y) {
+            for (const nodeName in nodePositions) {
+                const pos = nodePositions[nodeName];
+                const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                if (dist < nodeRadius) {
+                    return nodeName;
+                }
+            }
+            return null;
+        }
+
+        // Add a new node
+        function addNode(x, y) {
+            let newNodeName = nextNodeId;
+            while (graph[newNodeName]) { // Ensure unique ID
+                newNodeName = String.fromCharCode(newNodeName.charCodeAt(0) + 1);
+                if (newNodeName.charCodeAt(0) > 'Z'.charCodeAt(0)) {
+                    showModal("Error", "Too many nodes! Cannot add more.");
+                    return;
+                }
+            }
+            graph[newNodeName] = [];
+            nodePositions[newNodeName] = { x, y };
+            nextNodeId = String.fromCharCode(newNodeName.charCodeAt(0) + 1); // Increment for next new node
+            populateNodeSelects(); // Update dropdowns
+            drawGraph();
+            showModal("Node Added", `Node '${newNodeName}' added at (${x}, ${y}).`);
+        }
+
+        // Remove a node
+        function removeNode(nodeName) {
+            if (!graph[nodeName]) return;
+
+            // Remove node from graph
+            delete graph[nodeName];
+            delete nodePositions[nodeName];
+
+            // Remove all edges connected to this node
+            for (const otherNode in graph) {
+                graph[otherNode] = graph[otherNode].filter(edge => edge.node !== nodeName);
+            }
+            populateNodeSelects(); // Update dropdowns
+            drawGraph();
+            showModal("Node Removed", `Node '${nodeName}' and its edges removed.`);
+        }
+
+        // Add an edge
+        function addEdge(node1, node2, weight) {
+            if (node1 === node2) {
+                showModal("Error", "Cannot add an edge to the same node.");
+                return;
+            }
+            if (!graph[node1] || !graph[node2]) {
+                showModal("Error", "One or both nodes do not exist.");
+                return;
+            }
+
+            // Check if edge already exists (bidirectional check for simplicity)
+            const existingEdge1 = graph[node1].some(edge => edge.node === node2);
+            const existingEdge2 = graph[node2].some(edge => edge.node === node1);
+
+            if (existingEdge1 || existingEdge2) {
+                showModal("Error", `Edge already exists between ${node1} and ${node2}.`);
+                return;
+            }
+
+            const parsedWeight = parseInt(weight);
+            if (isNaN(parsedWeight) || parsedWeight <= 0) {
+                showModal("Invalid Weight", "Please enter a positive number for edge weight.");
+                return;
+            }
+
+            graph[node1].push({ node: node2, weight: parsedWeight });
+            graph[node2].push({ node: node1, weight: parsedWeight }); // Assuming undirected for now
+            drawGraph();
+            showModal("Edge Added", `Edge added between ${node1} and ${node2} with weight ${parsedWeight}.`);
+        }
+
+        // Remove an edge
+        function removeEdge(node1, node2) {
+            if (!graph[node1] || !graph[node2]) {
+                showModal("Error", "One or both nodes do not exist.");
+                return;
+            }
+
+            const initialLength1 = graph[node1].length;
+            const initialLength2 = graph[node2].length;
+
+            graph[node1] = graph[node1].filter(edge => edge.node !== node2);
+            graph[node2] = graph[node2].filter(edge => edge.node !== node1); // Assuming undirected for now
+
+            if (graph[node1].length < initialLength1 || graph[node2].length < initialLength2) {
+                drawGraph();
+                showModal("Edge Removed", `Edge removed between ${node1} and ${node2}.`);
+            } else {
+                showModal("Error", `No edge found between ${node1} and ${node2}.`);
+            }
+        }
+
+
         // --- Algorithm Implementations ---
 
         // Breadth-First Search Algorithm with Visualization
         async function bfs(startNode) {
+            if (isAlgorithmRunning) return;
+            if (!graph[startNode]) { showModal("Error", "Start node does not exist."); return; }
+            
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
@@ -1015,6 +1195,7 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
             targetNodeSelect.disabled = true;
+            graphInteractionModeSelect.disabled = true; // Disable interaction mode during algorithm
 
             visitedNodes = new Set();
             queueNodes = [];
@@ -1071,12 +1252,16 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
             targetNodeSelect.disabled = false;
+            graphInteractionModeSelect.disabled = false; // Re-enable interaction mode
             console.log("BFS Traversal Order:", visitedOrder.join(' -> '));
             showModal("BFS Complete!", `Traversal Order: ${visitedOrder.join(' -> ')}`);
         }
 
         // Depth-First Search Algorithm with Visualization (Iterative)
         async function dfs(startNode) {
+            if (isAlgorithmRunning) return;
+            if (!graph[startNode]) { showModal("Error", "Start node does not exist."); return; }
+
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
@@ -1085,6 +1270,7 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
             targetNodeSelect.disabled = true;
+            graphInteractionModeSelect.disabled = true; // Disable interaction mode during algorithm
 
             visitedNodes = new Set();
             queueNodes = [];
@@ -1143,12 +1329,18 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
             targetNodeSelect.disabled = false;
+            graphInteractionModeSelect.disabled = false; // Re-enable interaction mode
             console.log("DFS Traversal Order:", visitedOrder.join(' -> '));
             showModal("DFS Complete!", `Traversal Order: ${visitedOrder.join(' -> ')}`);
         }
 
         // Dijkstra's Algorithm with Visualization
         async function dijkstra(startNode, targetNode) {
+            if (isAlgorithmRunning) return;
+            if (!graph[startNode] || !graph[targetNode]) { showModal("Error", "Start or target node does not exist."); return; }
+            if (startNode === targetNode) { showModal("Error", "Start and target nodes cannot be the same."); return; }
+
+
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
@@ -1157,6 +1349,7 @@ function Prim(graph, startNode):
             targetNodeSelect.disabled = true;
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
+            graphInteractionModeSelect.disabled = true; // Disable interaction mode during algorithm
 
             distances = {};
             previousNodes = {};
@@ -1233,6 +1426,7 @@ function Prim(graph, startNode):
             targetNodeSelect.disabled = false;
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
+            graphInteractionModeSelect.disabled = false; // Re-enable interaction mode
 
             let resultMessage = `Shortest path from ${startNode} to ${targetNode}: `;
             if (distances[targetNode] === Infinity) {
@@ -1247,6 +1441,9 @@ function Prim(graph, startNode):
 
         // Floyd-Warshall Algorithm with Visualization
         async function floydWarshall() {
+            if (isAlgorithmRunning) return;
+            if (numNodes === 0) { showModal("Error", "Graph is empty. Add nodes to run Floyd-Warshall."); return; }
+
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
@@ -1255,6 +1452,7 @@ function Prim(graph, startNode):
             targetNodeSelect.disabled = true;
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
+            graphInteractionModeSelect.disabled = true; // Disable interaction mode during algorithm
 
             visitedNodes = new Set();
             queueNodes = [];
@@ -1277,8 +1475,10 @@ function Prim(graph, startNode):
 
             for (const nodeName in graph) {
                 const i = nodesArray.indexOf(nodeName);
+                if (i === -1) continue; // Node might have been removed
                 for (const edge of graph[nodeName]) {
                     const j = nodesArray.indexOf(edge.node);
+                    if (j === -1) continue; // Neighbor might have been removed
                     floydDistMatrix[i][j] = edge.weight;
                     floydPathMatrix[i][j] = i;
                 }
@@ -1304,7 +1504,7 @@ function Prim(graph, startNode):
                             if (floydDistMatrix[i][j] > floydDistMatrix[i][k] + floydDistMatrix[k][j]) {
                                 floydDistMatrix[i][j] = floydDistMatrix[i][k] + floydDistMatrix[k][j];
                                 floydPathMatrix[i][j] = floydPathMatrix[k][j];
-                                drawMatrix(floydDistMatrix, -1, -1, i, j);
+                                drawMatrix(floloydDistMatrix, -1, -1, i, j);
                                 await new Promise(resolve => setTimeout(resolve, animationSpeed * 2));
                             }
                         }
@@ -1323,6 +1523,7 @@ function Prim(graph, startNode):
             targetNodeSelect.disabled = false;
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
+            graphInteractionModeSelect.disabled = false; // Re-enable interaction mode
 
             console.log("Floyd-Warshall Final Distances:", floydDistMatrix);
             console.log("Floyd-Warshall Path Matrix:", floydPathMatrix);
@@ -1331,6 +1532,12 @@ function Prim(graph, startNode):
 
         // Minimum Spanning Tree (Prim's Algorithm) with Visualization
         async function primMST(startNode) {
+            if (isAlgorithmRunning) return;
+            if (!graph[startNode]) { showModal("Error", "Start node does not exist."); return; }
+            if (numNodes === 0) { showModal("Error", "Graph is empty. Add nodes to run MST."); return; }
+            if (numNodes === 1) { showModal("MST Complete!", "Graph has only one node. MST is just that node. Total Weight: 0"); return; }
+
+
             isAlgorithmRunning = true;
             startButton.disabled = true;
             resetButton.disabled = true;
@@ -1339,6 +1546,7 @@ function Prim(graph, startNode):
             algorithmSelect.disabled = true;
             modeSelect.disabled = true;
             targetNodeSelect.disabled = true;
+            graphInteractionModeSelect.disabled = true; // Disable interaction mode during algorithm
 
             mstEdges = new Set();
             mstTotalWeight = 0;
@@ -1418,6 +1626,7 @@ function Prim(graph, startNode):
             targetNodeSelect.disabled = false;
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
+            graphInteractionModeSelect.disabled = false; // Re-enable interaction mode
 
             let resultMessage = `Minimum Spanning Tree (Prim's) Complete!\nTotal Weight: ${mstTotalWeight}`;
             showModal("MST Complete!", resultMessage);
@@ -1448,6 +1657,12 @@ function Prim(graph, startNode):
             distanceMatrixTableDiv.innerHTML = '';
             mstEdges = new Set();
             mstTotalWeight = 0;
+            // Reset interaction states
+            draggedNode = null;
+            startEdgeNode = null;
+            mouseX = 0;
+            mouseY = 0;
+
 
             // Reset grid-specific states
             gridWalls = new Set();
@@ -1461,6 +1676,7 @@ function Prim(graph, startNode):
             } else if (currentMode === 'grid') {
                 initializeGrid(); // Re-initialize and draw empty grid
             }
+            // Re-enable all controls after reset
             startButton.disabled = false;
             resetButton.disabled = false;
             speedSlider.disabled = false;
@@ -1468,6 +1684,7 @@ function Prim(graph, startNode):
             targetNodeSelect.disabled = false;
             algorithmSelect.disabled = false;
             modeSelect.disabled = false;
+            graphInteractionModeSelect.disabled = false;
             customModal.style.display = 'none'; // Hide modal on reset
         }
 
@@ -1483,6 +1700,15 @@ function Prim(graph, startNode):
             currentAlgorithm = event.target.value;
             updateUI();
             resetVisualization(); // Reset when algorithm changes
+        });
+
+        graphInteractionModeSelect.addEventListener('change', (event) => {
+            currentGraphInteractionMode = event.target.value;
+            updateUI(); // Update UI to show/hide edge weight input
+            // Reset any ongoing interaction states when mode changes
+            draggedNode = null;
+            startEdgeNode = null;
+            drawGraph(); // Redraw to clear any temporary lines
         });
 
         startButton.addEventListener('click', () => {
@@ -1538,6 +1764,78 @@ function Prim(graph, startNode):
             gridSpeedValueSpan.textContent = `${animationSpeed}ms`;
         });
 
+        // --- Canvas Mouse Event Listeners for Graph Customization ---
+        canvas.addEventListener('mousedown', (e) => {
+            if (isAlgorithmRunning || currentMode !== 'graph') return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const clickedNode = getNodeAt(x, y);
+
+            if (currentGraphInteractionMode === 'select') {
+                if (clickedNode) {
+                    draggedNode = clickedNode;
+                }
+            } else if (currentGraphInteractionMode === 'add-node') {
+                if (!clickedNode) { // Only add if not clicking on an existing node
+                    addNode(x, y);
+                }
+            } else if (currentGraphInteractionMode === 'remove-node') {
+                if (clickedNode) {
+                    removeNode(clickedNode);
+                } else {
+                    showModal("Error", "Click on a node to remove it.");
+                }
+            } else if (currentGraphInteractionMode === 'add-edge') {
+                if (clickedNode) {
+                    if (!startEdgeNode) {
+                        startEdgeNode = clickedNode;
+                    } else if (startEdgeNode !== clickedNode) {
+                        const weight = newEdgeWeightInput.value;
+                        addEdge(startEdgeNode, clickedNode, weight);
+                        startEdgeNode = null; // Reset for next edge
+                    }
+                } else {
+                    startEdgeNode = null; // Reset if clicked outside a node
+                }
+                drawGraph(); // Redraw to clear temporary line if interaction resets
+            } else if (currentGraphInteractionMode === 'remove-edge') {
+                if (clickedNode) {
+                    if (!startEdgeNode) {
+                        startEdgeNode = clickedNode;
+                    } else if (startEdgeNode !== clickedNode) {
+                        removeEdge(startEdgeNode, clickedNode);
+                        startEdgeNode = null; // Reset for next edge
+                    }
+                } else {
+                    startEdgeNode = null; // Reset if clicked outside a node
+                }
+                drawGraph(); // Redraw to clear temporary line if interaction resets
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isAlgorithmRunning || currentMode !== 'graph') return;
+
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+
+            if (currentGraphInteractionMode === 'select' && draggedNode) {
+                nodePositions[draggedNode].x = mouseX;
+                nodePositions[draggedNode].y = mouseY;
+                drawGraph();
+            } else if (currentGraphInteractionMode === 'add-edge' && startEdgeNode) {
+                drawGraph(); // Redraw to update temporary line
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (isAlgorithmRunning || currentMode !== 'graph') return;
+            draggedNode = null; // Stop dragging
+            // startEdgeNode is handled in mousedown for add-edge/remove-edge
+        });
 
         // Initialize on load
         window.onload = function() {
